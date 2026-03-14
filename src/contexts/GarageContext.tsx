@@ -1,122 +1,104 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
-import { Customer, MockData, MOCK_DATA, ServiceHistory, Vehicle, Part } from '../data/mockData';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import { Customer, MockData, ServiceHistory, Vehicle, Part } from '../data/mockData';
+import { apiService } from '../utils/apiService';
 
 interface GarageContextType {
   customers: Customer[];
   stats: MockData['stats'];
-  analytics: MockData['analytics'];
+  analytics: MockData['analytics'] | null;
   recentActivity: MockData['recentActivity'];
-  addCustomer: (customer: Customer) => void;
-  addService: (customerId: string, vehicleId: string, service: ServiceHistory) => void;
-  getCustomerById: (id: string) => Customer | undefined;
-  getCustomerByPhone: (phone: string) => Customer | undefined;
-  updateServiceStatus: (serviceId: string, status: 'Pending' | 'Performed') => void;
-  getServiceById: (id: string) => any | undefined;
+  addCustomer: (customer: any) => Promise<void>;
+  addService: (data: any) => Promise<void>;
+  getCustomerById: (id: string) => Promise<Customer | null>;
+  getCustomerByPhone: (phone: string) => Promise<Customer | null>;
+  updateServiceStatus: (serviceId: string, status: 'Pending' | 'Performed') => Promise<void>;
+  getServiceById: (id: string) => Promise<any>;
   parts: Part[];
+  loading: boolean;
+  refreshData: () => Promise<void>;
 }
 
 export const GarageContext = createContext<GarageContextType | undefined>(undefined);
 
 export const GarageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [customers, setCustomers] = useState<Customer[]>(MOCK_DATA.customers);
-  const [stats, setStats] = useState(MOCK_DATA.stats);
-  const [recentActivity, setRecentActivity] = useState(MOCK_DATA.recentActivity);
-  const [parts, setParts] = useState(MOCK_DATA.parts);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [stats, setStats] = useState<MockData['stats']>({
+    totalCustomers: 0,
+    totalVehicles: 0,
+    todayRevenue: 0,
+    todayServices: 0
+  });
+  const [recentActivity, setRecentActivity] = useState<MockData['recentActivity']>([]);
+  const [parts, setParts] = useState<Part[]>([]);
+  const [analytics, setAnalytics] = useState<MockData['analytics'] | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const addCustomer = (customer: Customer) => {
-    setCustomers(prev => [...prev, customer]);
-    setStats(prev => ({
-      ...prev,
-      totalCustomers: prev.totalCustomers + 1,
-      totalVehicles: prev.totalVehicles + customer.vehicles.length
-    }));
-  };
-
-  const addService = (customerId: string, vehicleId: string, service: ServiceHistory) => {
-    setCustomers(prev => prev.map(customer => {
-      if (customer.id === customerId) {
-        const updatedHistory = [service, ...customer.history];
-        const updatedVehicles = customer.vehicles.map(v =>
-          v.id === vehicleId ? { ...v, lastService: service.date, nextServiceDate: service.nextServiceDate } : v
-        );
-        return { ...customer, history: updatedHistory, vehicles: updatedVehicles };
-      }
-      return customer;
-    }));
-
-    // Update stats
-    setStats(prev => ({
-      ...prev,
-      todayRevenue: prev.todayRevenue + service.cost,
-      todayServices: prev.todayServices + 1
-    }));
-
-    // Update recent activity
-    const customer = customers.find(c => c.id === customerId);
-    const vehicle = customer?.vehicles.find(v => v.id === vehicleId);
-
-    if (customer && vehicle) {
-      const newActivity = {
-        id: service.id,
-        customer: customer.name,
-        type: service.type,
-        cost: service.cost,
-        time: service.date,
-        vehicle: vehicle.model,
-        status: service.status // Include status for visual feedback
-      } as any;
-      setRecentActivity(prev => [newActivity, ...prev].slice(0, 10));
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [customersData, statsData, activityData, partsData, analyticsData] = await Promise.all([
+        apiService.customers.getAll(),
+        apiService.dashboard.getStats(),
+        apiService.dashboard.getRecentActivity(),
+        apiService.parts.getAll(),
+        apiService.dashboard.getAnalytics(),
+      ]);
+      setCustomers(customersData);
+      setStats(statsData);
+      setRecentActivity(activityData);
+      setParts(partsData);
+      setAnalytics(analyticsData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getCustomerById = (id: string) => {
-    return customers.find(c => c.id === id);
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const addCustomer = async (customerData: any) => {
+    await apiService.customers.create(customerData);
+    await fetchData();
   };
 
-  const getCustomerByPhone = (phone: string) => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length < 5) return undefined;
-    return customers.find(c => c.phone.replace(/\D/g, '').includes(cleanPhone));
-  };
-  const updateServiceStatus = (serviceId: string, status: 'Pending' | 'Performed') => {
-    setCustomers(prev => prev.map(customer => ({
-      ...customer,
-      history: customer.history.map(service => 
-        service.id === serviceId ? { ...service, status } : service
-      )
-    })));
-
-    setRecentActivity(prev => prev.map(activity => 
-      activity.id === serviceId ? { ...activity, status } : activity
-    ));
+  const addService = async (serviceData: any) => {
+    await apiService.services.create(serviceData);
+    await fetchData();
   };
 
-  const getServiceById = (id: string) => {
-    for (const customer of customers) {
-      const service = customer.history.find(s => s.id === id);
-      if (service) {
-        // We might want to know which vehicle this was for
-        // Usually, the vehicle is linked in the service record notes or we can infer it
-        // For simplicity, let's assume the service record has been enhanced or we search vehicles
-        // In the mock data, vehicles are in the Customer.history objects sometimes too
-        return {
-          ...service,
-          customerName: customer.name,
-          customerPhone: customer.phone,
-          // If we had vehicleId in service, we'd use that.
-          // For now, let's look at recentActivity to see if it's there
-          vehicleModel: recentActivity.find(a => a.id === id)?.vehicle || customer.vehicles[0]?.model
-        };
-      }
+  const getCustomerById = async (id: string) => {
+    try {
+      return await apiService.customers.getById(id);
+    } catch {
+      return null;
     }
-    return undefined;
+  };
+
+  const getCustomerByPhone = async (phone: string) => {
+    try {
+      return await apiService.customers.getByPhone(phone);
+    } catch {
+      return null;
+    }
+  };
+
+  const updateServiceStatus = async (serviceId: string, status: 'Pending' | 'Performed') => {
+    await apiService.services.updateStatus(serviceId, status);
+    await fetchData();
+  };
+
+  const getServiceById = async (id: string) => {
+    return await apiService.services.getById(id);
   };
 
   return (
     <GarageContext.Provider value={{
       customers,
       stats,
-      analytics: MOCK_DATA.analytics,
+      analytics,
       recentActivity,
       addCustomer,
       addService,
@@ -124,7 +106,9 @@ export const GarageProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       getCustomerByPhone,
       updateServiceStatus,
       getServiceById,
-      parts
+      parts,
+      loading,
+      refreshData: fetchData
     }}>
       {children}
     </GarageContext.Provider>

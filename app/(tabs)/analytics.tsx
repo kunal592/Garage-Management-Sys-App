@@ -1,15 +1,23 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions, StatusBar, ActivityIndicator } from 'react-native';
 import { Surface, Avatar, List, Icon } from 'react-native-paper';
 import { LineChart, PieChart } from 'react-native-chart-kit';
 import { colors } from '../../src/theme/colors';
-import { MOCK_DATA } from '../../src/data/mockData';
 import { formatCurrency } from '../../src/utils/helpers';
+import { useGarage } from '../../src/hooks/useGarage';
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function AnalyticsScreen() {
-  const { analytics } = MOCK_DATA;
+  const { analytics, loading } = useGarage();
+
+  if (loading || !analytics) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   const chartConfig = {
     backgroundGradientFrom: '#FFFFFF',
@@ -84,7 +92,7 @@ export default function AnalyticsScreen() {
               labels: analytics.monthlyRevenue.labels,
               datasets: [{ data: analytics.monthlyRevenue.data }],
             }}
-            width={screenWidth - 72}
+            width={screenWidth - 80}
             height={200}
             chartConfig={chartConfig}
             bezier
@@ -121,7 +129,6 @@ export default function AnalyticsScreen() {
         {/* Top Customers Leaderboard */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Top Customers</Text>
-          <Text style={styles.sectionAction}>View All</Text>
         </View>
 
         <Surface style={styles.leaderboardCard} elevation={1}>
@@ -147,11 +154,6 @@ export default function AnalyticsScreen() {
                   />
                 </View>
               )}
-              right={() => (
-                <View style={styles.customerAction}>
-                  <Icon source="chevron-right" size={20} color="#94A3B8" />
-                </View>
-              )}
               style={[
                 styles.listItem,
                 index === analytics.topCustomers.length - 1 && { borderBottomWidth: 0 }
@@ -169,7 +171,12 @@ export default function AnalyticsScreen() {
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
-    backgroundColor: '#F8FAFC', // Soft slate background
+    backgroundColor: '#F8FAFC',
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   container: {
     flex: 1,
@@ -281,7 +288,7 @@ const styles = StyleSheet.create({
   chart: {
     marginVertical: 8,
     borderRadius: 16,
-    marginLeft: -16, // Align with card padding
+    marginLeft: -16,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -293,11 +300,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: '#1E293B',
-  },
-  sectionAction: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#4F46E5',
   },
   leaderboardCard: {
     backgroundColor: '#FFFFFF',
@@ -325,7 +327,5 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '500',
   },
-  customerAction: {
-    justifyContent: 'center',
-  },
 });
+

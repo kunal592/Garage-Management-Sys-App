@@ -1,16 +1,36 @@
-import React from 'react';
-import { View, StyleSheet, ScrollView, Linking, StatusBar, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, ScrollView, Linking, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text, Surface, Button, Avatar } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { MOCK_DATA } from "../../src/data/mockData";
 import { colors } from "../../src/theme/colors";
+import { useGarage } from "../../src/hooks/useGarage";
+import { Customer } from "../../src/data/mockData";
 
 export default function CustomerDetails() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { getCustomerById } = useGarage();
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const customer = MOCK_DATA.customers.find((c) => c.id === id);
+  useEffect(() => {
+    const loadCustomer = async () => {
+      setLoading(true);
+      const data = await getCustomerById(id as string);
+      setCustomer(data);
+      setLoading(false);
+    };
+    loadCustomer();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   if (!customer) {
     return (
@@ -84,14 +104,14 @@ export default function CustomerDetails() {
 
         {/* Vehicle Section */}
         <Text style={styles.sectionTitle}>Vehicle Details</Text>
-        {customer.vehicles.map(vehicle => (
+        {customer.vehicles?.map(vehicle => (
           <Surface key={vehicle.id} style={[styles.detailCard, { backgroundColor: colors.surface }]}>
             <View style={styles.detailItem}>
                 <MaterialCommunityIcons name="car" size={24} color={colors.primary} style={{ marginRight: 12 }} />
                 <View>
                   <Text style={styles.detailLabel}>Model</Text>
                   <Text style={styles.detailValue}>{vehicle.model}</Text>
-                  <Text style={styles.detailSubValue}>{vehicle.number}</Text>
+                  <Text style={styles.detailSubValue}>{vehicle.vehicleNumber || (vehicle as any).number}</Text>
                 </View>
             </View>
           </Surface>
@@ -99,7 +119,7 @@ export default function CustomerDetails() {
 
         {/* History Section */}
         <Text style={styles.sectionTitle}>Service History</Text>
-        {customer.history.map(item => (
+        {customer.history?.map(item => (
           <Surface key={item.id} style={styles.detailCard}>
             <View style={styles.historyHeader}>
               <Text style={styles.historyDate}>{item.date}</Text>

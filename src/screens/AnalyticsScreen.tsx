@@ -1,19 +1,27 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, Dimensions, StatusBar } from 'react-native';
+import { View, StyleSheet, ScrollView, Dimensions, StatusBar, ActivityIndicator } from 'react-native';
 import { Text, Surface, List, Avatar, Icon } from 'react-native-paper';
 import { LineChart, PieChart } from 'react-native-chart-kit';
 import { colors } from '../theme/colors';
-import { MOCK_DATA } from '../data/mockData';
 import { formatCurrency } from '../utils/helpers';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { useGarage } from '../hooks/useGarage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Analytics'>;
 
 const screenWidth = Dimensions.get('window').width;
 
 const AnalyticsScreen: React.FC<Props> = () => {
-  const { analytics } = MOCK_DATA;
+  const { analytics, loading } = useGarage();
+
+  if (loading || !analytics) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   const chartConfig = {
     backgroundGradientFrom: '#FFF',
@@ -62,7 +70,7 @@ const AnalyticsScreen: React.FC<Props> = () => {
             labels: analytics.monthlyRevenue.labels,
             datasets: [{ data: analytics.monthlyRevenue.data }],
           }}
-          width={screenWidth - 72}
+          width={screenWidth - 80}
           height={220}
           chartConfig={chartConfig}
           bezier
@@ -83,7 +91,7 @@ const AnalyticsScreen: React.FC<Props> = () => {
                      item.name === 'Brake Repair' ? '#0EA5E9' :
                      item.name === 'Engine Work' ? '#6366F1' : '#94A3B8'
           }))}
-          width={screenWidth - 72}
+          width={screenWidth - 80}
           height={180}
           chartConfig={chartConfig}
           accessor={'population'}
@@ -106,7 +114,7 @@ const AnalyticsScreen: React.FC<Props> = () => {
             titleStyle={styles.customerName as any}
             description={`Contribution: ${formatCurrency(customer.totalSpent)}`}
             descriptionStyle={styles.customerSpend as any}
-            left={props => (
+            left={() => (
               <Avatar.Text
                 size={44}
                 label={(index + 1).toString()}
@@ -116,11 +124,6 @@ const AnalyticsScreen: React.FC<Props> = () => {
                 }}
                 labelStyle={{ color: index === 0 ? '#FFF' : colors.primary, fontWeight: '700' }}
               />
-            )}
-            right={props => (
-                <View style={styles.rankBadge}>
-                     <Icon source="star" size={16} color={index === 0 ? colors.accent : colors.border} />
-                </View>
             )}
             style={index === analytics.topCustomers.length - 1 ? styles.lastItem : styles.listItem}
           />
@@ -137,6 +140,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
     padding: 20,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerSection: {
       flexDirection: 'row',
@@ -244,10 +252,6 @@ const styles = StyleSheet.create({
       color: colors.textSecondary,
       fontWeight: '500',
   },
-  rankBadge: {
-      justifyContent: 'center',
-      paddingRight: 8,
-  }
 });
 
 export default AnalyticsScreen;

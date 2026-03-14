@@ -1,18 +1,39 @@
-import React from 'react';
-import { View, StyleSheet, ScrollView, Linking, StatusBar } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, ScrollView, Linking, StatusBar, ActivityIndicator } from 'react-native';
 import { Text, Surface, Button, Icon, IconButton, Avatar } from 'react-native-paper';
 import { colors } from '../theme/colors';
-import { MOCK_DATA } from '../data/mockData';
 import VehicleCard from '../components/VehicleCard';
 import ServiceItem from '../components/ServiceItem';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { useGarage } from '../hooks/useGarage';
+import { Customer } from '../data/mockData';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CustomerDetail'>;
 
 const CustomerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { customerId } = route.params;
-  const customer = MOCK_DATA.customers.find(c => c.id === customerId);
+  const { getCustomerById } = useGarage();
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadCustomer = async () => {
+      setLoading(true);
+      const data = await getCustomerById(customerId);
+      setCustomer(data);
+      setLoading(false);
+    };
+    loadCustomer();
+  }, [customerId]);
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   if (!customer) {
     return (
@@ -92,7 +113,7 @@ const CustomerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             style={{ margin: 0 }}
           />
         </View>
-        {customer.vehicles.map(vehicle => (
+        {customer.vehicles?.map(vehicle => (
           <VehicleCard key={vehicle.id} vehicle={vehicle} />
         ))}
 
@@ -109,12 +130,15 @@ const CustomerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </Button>
         </View>
         <Surface style={styles.historyCard}>
-          {customer.history.map((service) => (
+          {customer.history?.map((service) => (
             <ServiceItem
               key={service.id}
               service={service}
             />
           ))}
+          {(!customer.history || customer.history.length === 0) && (
+            <Text style={{ padding: 20, textAlign: 'center', color: colors.textSecondary }}>No service records found</Text>
+          )}
         </Surface>
 
         <View style={styles.footerActions}>

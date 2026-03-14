@@ -18,3 +18,12 @@ export const getRecentActivity = async (req: Request, res: Response, next: NextF
     next(error);
   }
 };
+
+export const getAnalytics = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const analytics = await dashboardService.getAnalytics();
+    res.json(analytics);
+  } catch (error) {
+    next(error);
+  }
+};
