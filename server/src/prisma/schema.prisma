@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Customer {
+  id        String    @id @default(cuid())
+  name      String
+  phone     String    @unique
+  address   String?
+  createdAt DateTime  @default(now())
+  vehicles  Vehicle[]
+  services  Service[]
+}
+
+model Vehicle {
+  id               String    @id @default(cuid())
+  model            String
+  vehicleNumber    String    @unique
+  customerId       String
+  customer         Customer  @relation(fields: [customerId], references: [id])
+  lastServiceDate  DateTime?
+  nextServiceDate  DateTime?
+  services         Service[]
+  createdAt        DateTime  @default(now())
+}
+
+model Service {
+  id              String        @id @default(cuid())
+  customerId      String
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  vehicleId       String
+  vehicle         Vehicle       @relation(fields: [vehicleId], references: [id])
+  status          String        @default("Pending") // Pending / Performed
+  serviceItems    Json?         // To store array of strings or complex objects
+  serviceCost     Float         @default(0)
+  partsCost       Float         @default(0)
+  totalCost       Float         @default(0)
+  nextServiceDate DateTime?
+  createdAt       DateTime      @default(now())
+  images          VehicleImage[]
+  parts           ServicePart[]
+}
+
+model Part {
+  id        String        @id @default(cuid())
+  name      String
+  category  String
+  brand     String?
+  price     Float
+  services  ServicePart[]
+  createdAt DateTime      @default(now())
+}
+
+model ServicePart {
+  serviceId   String
+  service     Service @relation(fields: [serviceId], references: [id])
+  partId      String
+  part        Part    @relation(fields: [partId], references: [id])
+  quantity    Int     @default(1)
+  priceAtTime Float
+
+  @@id([serviceId, partId])
+}
+
+model VehicleImage {
+  id        String   @id @default(cuid())
+  url       String
+  serviceId String?
+  service   Service? @relation(fields: [serviceId], references: [id])
+  vehicleId String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
