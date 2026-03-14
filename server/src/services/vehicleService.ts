@@ -1,10 +1,20 @@
-import { db } from '../data/mockDb';
+import prisma from '../prisma/client';
 
 export const addVehicleToCustomer = async (customerId: string, data: { model: string; vehicleNumber: string }) => {
-  return db.vehicles.create(customerId, data);
+  return prisma.vehicle.create({
+    data: {
+      ...data,
+      customerId
+    }
+  });
 };
 
 export const updateVehicleServiceMeta = async (id: string, data: { lastServiceDate: string; nextServiceDate: string }) => {
-  // Mock update
-  return { id, ...data };
+  return prisma.vehicle.update({
+    where: { id },
+    data: {
+      lastServiceDate: data.lastServiceDate ? new Date(data.lastServiceDate) : undefined,
+      nextServiceDate: data.nextServiceDate ? new Date(data.nextServiceDate) : undefined,
+    }
+  });
 };

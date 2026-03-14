@@ -1,5 +1,7 @@
-import { db } from '../data/mockDb';
+import prisma from '../prisma/client';
 
 export const getAllParts = async () => {
-  return db.parts.findMany();
+  return prisma.part.findMany({
+    orderBy: { name: 'asc' }
+  });
 };

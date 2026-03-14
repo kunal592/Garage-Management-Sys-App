@@ -1,33 +1,12 @@
 import prisma from './client';
-
-const rawCustomers = [
-  {
-    id: '1',
-    name: 'Jane Smith',
-    phone: '+91 98765 43210',
-    address: '123, Blue Ridge, Hinjewadi, Pune',
-    vehicles: [{ id: 'v1', model: 'Ford Mustang', number: 'DEF-5678', lastService: 'Mar 10, 2026', nextServiceDate: 'Mar 15, 2026' }],
-    history: [
-      { id: 's1', type: 'Oil change, Brake inspection', date: 'Mar 10, 2026 - 1:20 AM', cost: 326, parts: 267, labour: 59, status: 'Performed', notes: 'Routine maintenance performed.' },
-      { id: 's2', type: 'Tire Rotation', date: 'Jan 15, 2026', cost: 120, parts: 0, labour: 120, status: 'Performed', notes: 'Checked tire pressure.' },
-    ]
-  },
-  // ... I'll add a few more or a subset for brevity in this thought, 
-  // but I should probably do all of them if possible or at least a good chunk.
-  // Actually I'll just do a few to demonstrate and the user can add more or I can script it.
-];
-
-const PARTS_LIST = [
-  { id: 'p1', name: 'Spark Plug', category: 'Engine Parts', price: 120, brand: 'NGK' },
-  { id: 'p2', name: 'Air Filter', category: 'Engine Parts', price: 250, brand: 'Hero' },
-  // ...
-];
+import { MOCK_DATA } from '../data/mockData';
 
 async function main() {
   console.log('Start seeding...');
 
-  // Upsert Parts
-  for (const part of PARTS_LIST) {
+  // 1. Seed Parts
+  console.log('Seeding parts...');
+  for (const part of MOCK_DATA.parts) {
     await prisma.part.upsert({
       where: { id: part.id },
       update: {},
@@ -41,8 +20,10 @@ async function main() {
     });
   }
 
-  // Upsert Customers, Vehicles, and Services
-  for (const cust of rawCustomers) {
+  // 2. Seed Customers, Vehicles, and Services
+  console.log('Seeding customers and history...');
+  for (const cust of MOCK_DATA.customers) {
+    // Create Customer
     const customer = await prisma.customer.upsert({
       where: { phone: cust.phone },
       update: {},
@@ -54,8 +35,9 @@ async function main() {
       }
     });
 
+    // Create Vehicles
     for (const v of cust.vehicles) {
-      await prisma.vehicle.upsert({
+      const vehicle = await prisma.vehicle.upsert({
         where: { vehicleNumber: v.number },
         update: {},
         create: {
@@ -67,9 +49,32 @@ async function main() {
           nextServiceDate: v.nextServiceDate ? new Date(v.nextServiceDate) : null,
         }
       });
-    }
 
-    // history mapping...
+      // Create Service History for this vehicle
+      // The mock data has history per customer, but let's associate it with the vehicle
+      // For simplicity, we'll map the customer history to their first vehicle if multiple exist
+      // Or filter simple history.
+      const vehicleHistory = cust.history.filter(h => h.vehicleModel === v.model || !h.vehicleModel);
+      
+      for (const h of vehicleHistory) {
+        await prisma.service.upsert({
+          where: { id: h.id },
+          update: {},
+          create: {
+            id: h.id,
+            customerId: customer.id,
+            vehicleId: vehicle.id,
+            status: h.status,
+            serviceItems: [h.type],
+            serviceCost: h.labour || 0,
+            partsCost: h.parts || 0,
+            totalCost: h.cost || 0,
+            nextServiceDate: h.nextServiceDate ? new Date(h.nextServiceDate) : null,
+            createdAt: new Date(h.date.split(' - ')[0] || h.date)
+          }
+        });
+      }
+    }
   }
 
   console.log('Seeding finished.');

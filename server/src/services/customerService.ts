@@ -1,25 +1,45 @@
-import { db } from '../data/mockDb';
+import prisma from '../prisma/client';
 
 export const getAllCustomers = async (search?: string) => {
-  let customers = db.customers.findMany();
-  if (search) {
-    const s = search.toLowerCase();
-    customers = customers.filter(c => 
-      c.name.toLowerCase().includes(s) || 
-      c.phone.includes(s)
-    );
-  }
-  return customers;
+  return prisma.customer.findMany({
+    where: search ? {
+      OR: [
+        { name: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } }
+      ]
+    } : {},
+    include: {
+      vehicles: true
+    }
+  });
 };
 
 export const getCustomerById = async (id: string) => {
-  return db.customers.findUnique(id);
+  return prisma.customer.findUnique({
+    where: { id },
+    include: {
+      vehicles: {
+        include: {
+          services: {
+            orderBy: { createdAt: 'desc' }
+          }
+        }
+      },
+      services: {
+        orderBy: { createdAt: 'desc' }
+      }
+    }
+  });
 };
 
 export const createCustomer = async (data: { name: string; phone: string; address?: string }) => {
-  return db.customers.create(data);
+  return prisma.customer.create({
+    data
+  });
 };
 
 export const searchCustomerByPhone = async (phone: string) => {
-  return db.customers.findByPhone(phone);
+  return prisma.customer.findUnique({
+    where: { phone }
+  });
 };
