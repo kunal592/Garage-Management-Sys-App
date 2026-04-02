@@ -6,16 +6,16 @@ import { colors } from '../theme/colors';
 import { formatCurrency } from '../utils/helpers';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { useGarage } from '../hooks/useGarage';
+import { useAnalytics } from '../hooks/useQueries';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Analytics'>;
 
 const screenWidth = Dimensions.get('window').width;
 
 const AnalyticsScreen: React.FC<Props> = () => {
-  const { analytics, loading } = useGarage();
+  const { data: analytics, isLoading } = useAnalytics();
 
-  if (loading || !analytics) {
+  if (isLoading || !analytics) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -67,8 +67,8 @@ const AnalyticsScreen: React.FC<Props> = () => {
         </View>
         <LineChart
           data={{
-            labels: analytics.monthlyRevenue.labels,
-            datasets: [{ data: analytics.monthlyRevenue.data }],
+            labels: analytics.monthlyRevenue?.labels || [],
+            datasets: [{ data: analytics.monthlyRevenue?.data || [] }],
           }}
           width={screenWidth - 80}
           height={220}
@@ -85,7 +85,7 @@ const AnalyticsScreen: React.FC<Props> = () => {
         <Text variant="titleMedium" style={styles.chartTitle}>Service Breakdown</Text>
         <Text variant="bodySmall" style={[styles.chartSubtitle, { marginBottom: 10 }]}>Distribution by job type</Text>
         <PieChart
-          data={analytics.serviceDistribution.map(item => ({
+          data={(analytics.serviceDistribution || []).map((item: any) => ({
               ...item,
               color: item.name === 'Oil Change' ? '#4F46E5' :
                      item.name === 'Brake Repair' ? '#0EA5E9' :
@@ -107,7 +107,7 @@ const AnalyticsScreen: React.FC<Props> = () => {
         <Text variant="titleLarge" style={styles.sectionTitle}>Loyal Customers</Text>
       </View>
       <Surface style={styles.listCard}>
-        {analytics.topCustomers.map((customer, index) => (
+        {(analytics.topCustomers || []).map((customer: any, index: number) => (
           <List.Item
             key={customer.id}
             title={customer.name}
@@ -125,7 +125,7 @@ const AnalyticsScreen: React.FC<Props> = () => {
                 labelStyle={{ color: index === 0 ? '#FFF' : colors.primary, fontWeight: '700' }}
               />
             )}
-            style={index === analytics.topCustomers.length - 1 ? styles.lastItem : styles.listItem}
+            style={index === (analytics.topCustomers?.length || 0) - 1 ? styles.lastItem : styles.listItem}
           />
         ))}
       </Surface>

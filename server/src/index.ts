@@ -47,12 +47,18 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 });
 
 import prisma from './prisma/client';
+import { cleanupExpiredImages } from './utils/cleanup';
 
 app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`);
   try {
     await prisma.$connect();
     console.log('Database connected successfully');
+    
+    // Initial cleanup and setup interval (every 24 hours)
+    cleanupExpiredImages();
+    setInterval(cleanupExpiredImages, 24 * 60 * 60 * 1000);
+    
   } catch (error) {
     console.error('Failed to connect to database:', error);
   }

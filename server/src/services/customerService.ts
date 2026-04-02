@@ -15,26 +15,47 @@ export const getAllCustomers = async (search?: string) => {
 };
 
 export const getCustomerById = async (id: string) => {
-  return prisma.customer.findUnique({
+  const customer = await prisma.customer.findUnique({
     where: { id },
     include: {
-      vehicles: {
-        include: {
-          services: {
-            orderBy: { createdAt: 'desc' }
-          }
-        }
-      },
+      vehicles: true,
       services: {
+        include: { vehicle: true },
         orderBy: { createdAt: 'desc' }
       }
     }
   });
+
+  if (!customer) return null;
+
+  return {
+    ...customer,
+    history: customer.services.map((s: any) => ({
+      id: s.id,
+      date: s.createdAt.toLocaleDateString(),
+      type: Array.isArray(s.serviceItems) ? (s.serviceItems as string[]).join(', ') : 'Service',
+      cost: s.totalCost,
+      parts: s.partsCost,
+      labour: s.serviceCost,
+      status: s.status,
+      notes: '', // Add notes if needed in schema later
+      vehicleModel: s.vehicle.model,
+    }))
+  };
 };
 
-export const createCustomer = async (data: { name: string; phone: string; address?: string }) => {
+export const createCustomer = async (data: { name: string; phone: string; address?: string; vehicles?: any[] }) => {
+  const { vehicles, ...customerData } = data;
   return prisma.customer.create({
-    data
+    data: {
+      ...customerData,
+      vehicles: vehicles ? {
+        create: vehicles
+      } : undefined
+    },
+    include: {
+      vehicles: true
+    }
   });
 };
 

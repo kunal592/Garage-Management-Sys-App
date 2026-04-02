@@ -3,8 +3,17 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { Provider as PaperProvider } from 'react-native-paper';
-import { GarageProvider } from '../src/contexts/GarageContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+    },
+  },
+});
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -14,7 +23,7 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <GarageProvider>
+    <QueryClientProvider client={queryClient}>
       <PaperProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack>
@@ -26,6 +35,6 @@ export default function RootLayout() {
           <StatusBar style="auto" />
         </ThemeProvider>
       </PaperProvider>
-    </GarageProvider>
+    </QueryClientProvider>
   );
 }

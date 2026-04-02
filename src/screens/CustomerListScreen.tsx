@@ -1,29 +1,30 @@
 import React, { useState, useMemo } from 'react';
-import { View, StyleSheet, FlatList, StatusBar } from 'react-native';
+import { View, StyleSheet, FlatList, StatusBar, ActivityIndicator } from 'react-native';
 import { Text, FAB } from 'react-native-paper';
 import { colors } from '../theme/colors';
 import CustomerCard from '../components/CustomerCard';
 import SearchBar from '../components/SearchBar';
-import { Customer } from '../data/mockData';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { useGarage } from '../hooks/useGarage';
+import { useCustomers } from '../hooks/useQueries';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CustomerList'>;
 
 const CustomerListScreen: React.FC<Props> = ({ navigation }) => {
-  const { customers } = useGarage();
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // TanStack Query Hook
+  const { data: customers = [], isLoading, refetch, isRefetching } = useCustomers();
 
   const filteredCustomers = useMemo(() => {
     if (!searchQuery) return customers;
 
     const query = searchQuery.toLowerCase();
-    return customers.filter((customer) =>
+    return customers.filter((customer: any) =>
       customer.name.toLowerCase().includes(query) ||
       customer.phone.includes(searchQuery) ||
-      customer.vehicles.some(v => v.model.toLowerCase().includes(query)) ||
-      customer.vehicles.some(v => v.number.toLowerCase().includes(query))
+      customer.vehicles?.some((v: any) => v.model.toLowerCase().includes(query)) ||
+      customer.vehicles?.some((v: any) => v.vehicleNumber?.toLowerCase().includes(query))
     );
   }, [customers, searchQuery]);
 
@@ -36,30 +37,38 @@ const CustomerListScreen: React.FC<Props> = ({ navigation }) => {
         placeholder="Search name, phone or vehicle..."
       />
 
-      <FlatList
-        data={filteredCustomers}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <CustomerCard
-            customer={item}
-            onPress={() => navigation.navigate('CustomerDetail', { customerId: item.id })}
-          />
-        )}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text variant="bodyLarge" style={styles.emptyText}>
-              {searchQuery ? 'No matching customers found' : 'No customers in directory'}
-            </Text>
-          </View>
-        }
-      />
+      {isLoading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredCustomers}
+          keyExtractor={(item) => item.id}
+          refreshing={isRefetching}
+          onRefresh={refetch}
+          renderItem={({ item }) => (
+            <CustomerCard
+              customer={item}
+              onPress={() => navigation.navigate('CustomerDetail', { customerId: item.id })}
+            />
+          )}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text variant="bodyLarge" style={styles.emptyText}>
+                {searchQuery ? 'No matching customers found' : 'No customers in directory'}
+              </Text>
+            </View>
+          }
+        />
+      )}
 
       <FAB
         icon="plus"
         style={styles.fab}
-        onPress={() => navigation.navigate('CustomerList')} // Or to a specific AddCustomer screen if exists
+        onPress={() => navigation.navigate('CustomerList')} // Should probably go to AddCustomer if available
         label="Add Customer"
         color="#FFF"
       />
@@ -71,6 +80,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   listContent: {
     padding: 20,

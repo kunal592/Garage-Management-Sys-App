@@ -1,25 +1,33 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Share } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Share, ActivityIndicator } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import StatCard from "../../components/StatCard";
 import QuickActionButton from "../../components/QuickActionButton";
 import RecentActivityCard from "../../components/RecentActivityCard";
 import { formatCurrency } from "../../src/utils/helpers";
-import { useGarage } from '../../src/hooks/useGarage';
+import { useStats, useRecentActivity, useCustomers, useUpdateServiceStatus } from '../../src/hooks/useQueries';
+import { colors } from '../../src/theme/colors';
 
 export default function Dashboard() {
   const router = useRouter();
-  const { stats, recentActivity, customers, updateServiceStatus } = useGarage();
+  
+  // TanStack Query Hooks
+  const { data: stats, isLoading: statsLoading } = useStats();
+  const { data: recentActivity, isLoading: activityLoading } = useRecentActivity();
+  const { data: customers } = useCustomers();
+  const updateStatusMutation = useUpdateServiceStatus();
 
   const serviceReminders = useMemo(() => {
+    if (!customers) return [];
+    
     const reminders: any[] = [];
     const now = new Date();
     const tomorrow = new Date();
     tomorrow.setHours(now.getHours() + 24);
 
-    customers.forEach(customer => {
-      customer.vehicles.forEach(vehicle => {
+    customers.forEach((customer: any) => {
+      customer.vehicles?.forEach((vehicle: any) => {
         if (vehicle.nextServiceDate) {
           const serviceDate = new Date(vehicle.nextServiceDate);
           if (serviceDate >= now && serviceDate <= tomorrow) {
@@ -27,8 +35,8 @@ export default function Dashboard() {
               customerName: customer.name,
               phone: customer.phone,
               vehicleModel: vehicle.model,
-              vehicleNumber: vehicle.number,
-              serviceDate: vehicle.nextServiceDate
+              vehicleNumber: vehicle.vehicleNumber || vehicle.number,
+              serviceDate: new Date(vehicle.nextServiceDate).toLocaleDateString()
             });
           }
         }
@@ -52,6 +60,14 @@ Thank you.`;
     }
   };
 
+  if (statsLoading || activityLoading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.mainContainer}>
       <StatusBar barStyle="dark-content" />
@@ -61,7 +77,7 @@ Thank you.`;
         <View style={styles.topHeader}>
           <View>
             <Text style={styles.welcomeText}>Garage Manager</Text>
-            <Text style={styles.dateText}>Monday, March 10, 2026</Text>
+            <Text style={styles.dateText}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</Text>
           </View>
           <View style={styles.headerIconsRow}>
             <TouchableOpacity
@@ -88,7 +104,7 @@ Thank you.`;
                 <View key={idx} style={styles.reminderCard}>
                   <View style={styles.reminderHeader}>
                     <MaterialCommunityIcons name="bell-ring" size={20} color="#F59E0B" />
-                    <Text style={styles.reminderTitle}>Scheduled Tomorrow</Text>
+                    <Text style={styles.reminderTitle}>Scheduled Soon</Text>
                   </View>
                   <Text style={styles.remCustName}>{reminder.customerName}</Text>
                   <Text style={styles.remVehInfo}>{reminder.vehicleModel} • {reminder.vehicleNumber}</Text>
@@ -108,22 +124,24 @@ Thank you.`;
         )}
 
         {/* Stats Section */}
-        <View style={styles.statsRow}>
-          <StatCard
-            title="Today Revenue"
-            value={formatCurrency(stats.todayRevenue)}
-            icon="currency-inr"
-            trend="+12%"
-            color="#2DD4BF"
-          />
-          <StatCard
-            title="Services"
-            value={stats.todayServices.toString()}
-            icon="wrench-clock"
-            trend="+5"
-            color="#6366F1"
-          />
-        </View>
+        {stats && (
+          <View style={styles.statsRow}>
+            <StatCard
+              title="Today Revenue"
+              value={formatCurrency(stats.todayRevenue)}
+              icon="currency-inr"
+              trend="+12%"
+              color="#2DD4BF"
+            />
+            <StatCard
+              title="Services"
+              value={stats.todayServices.toString()}
+              icon="wrench-clock"
+              trend="+5"
+              color="#6366F1"
+            />
+          </View>
+        )}
 
         {/* Quick Actions Section */}
         <View style={styles.sectionContainer}>
@@ -162,7 +180,7 @@ Thank you.`;
             </TouchableOpacity>
           </View>
 
-          {recentActivity.map((activity: any, index: number) => (
+          {recentActivity?.map((activity: any, index: number) => (
             <TouchableOpacity key={activity.id} onPress={() => router.push(`/services/${activity.id}`)}>
               <RecentActivityCard
                 id={activity.id}
@@ -173,12 +191,12 @@ Thank you.`;
                 service={activity.type}
                 status={activity.status}
                 isFirst={index === 0}
-                onUpdateStatus={(id) => updateServiceStatus(id, 'Performed')}
+                onUpdateStatus={(id) => updateStatusMutation.mutate({ id, status: 'Performed' })}
               />
             </TouchableOpacity>
           ))}
 
-          {recentActivity.length === 0 && (
+          {(!recentActivity || recentActivity.length === 0) && (
             <Text style={styles.emptyText}>No recent activity</Text>
           )}
         </View>
@@ -197,6 +215,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   topHeader: {
     flexDirection: 'row',

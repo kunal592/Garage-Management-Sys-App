@@ -11,11 +11,17 @@ export const getServices = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
+import { serviceSchema } from '../utils/validation';
+
 export const createService = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const service = await serviceRecordService.createService(req.body);
+    const validatedData = serviceSchema.parse(req.body);
+    const service = await serviceRecordService.createService(validatedData);
     res.status(201).json(service);
   } catch (error) {
+    if (error instanceof Error && error.name === 'ZodError') {
+      return res.status(400).json({ message: 'Validation failed', errors: (error as any).errors });
+    }
     next(error);
   }
 };

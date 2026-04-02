@@ -1,18 +1,27 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, StatusBar, ActivityIndicator } from 'react-native';
 import { Text, Surface, Button, Icon, Avatar } from 'react-native-paper';
 import { colors } from '../theme/colors';
 import StatCard from '../components/StatCard';
 import { formatCurrency } from '../utils/helpers';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { useGarage } from '../hooks/useGarage';
+import { useStats, useRecentActivity } from '../hooks/useQueries';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const { stats, recentActivity } = useGarage();
+  const { data: stats, isLoading: statsLoading } = useStats();
+  const { data: recentActivity = [], isLoading: activityLoading } = useRecentActivity();
+
+  if (statsLoading || activityLoading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.mainContainer}>
@@ -21,7 +30,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         {/* Header Section */}
         <View style={styles.header}>
           <View>
-            <Text variant="bodyMedium" style={styles.dateText}>Monday, 20 Nov</Text>
+            <Text style={styles.dateText}>Monday, 20 Nov</Text>
             <Text variant="headlineSmall" style={styles.welcomeText}>Garage Dashboard</Text>
           </View>
           <TouchableOpacity style={styles.profileButton}>
@@ -34,13 +43,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.row}>
             <StatCard
               title="Total Customers"
-              value={stats.totalCustomers.toString()}
+              value={stats?.totalCustomers.toString() || '0'}
               icon="account-group"
               color={colors.primary}
             />
             <StatCard
               title="Total Vehicles"
-              value={stats.totalVehicles.toString()}
+              value={stats?.totalVehicles.toString() || '0'}
               icon="car-multiple"
               color={colors.secondary}
             />
@@ -48,13 +57,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.row}>
             <StatCard
               title="Today's Revenue"
-              value={formatCurrency(stats.todayRevenue)}
+              value={formatCurrency(stats?.todayRevenue || 0)}
               icon="currency-inr"
               color={colors.success}
             />
             <StatCard
               title="Services Today"
-              value={stats.todayServices.toString()}
+              value={stats?.todayServices.toString() || '0'}
               icon="wrench-clock"
               color={colors.warning}
             />
@@ -155,6 +164,11 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   container: {
     flex: 1,

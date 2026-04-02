@@ -1,22 +1,24 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar } from 'react-native';
-import { Text, Surface, DataTable, Searchbar, IconButton } from 'react-native-paper';
+import React, { useState, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, StatusBar, ActivityIndicator } from 'react-native';
+import { Text, Surface, DataTable, Searchbar } from 'react-native-paper';
 import { useRouter, Stack } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useGarage } from "../../src/hooks/useGarage";
+import { useParts } from "../../src/hooks/useQueries";
 import { colors } from "../../src/theme/colors";
 import { formatCurrency } from "../../src/utils/helpers";
 
 export default function PartsPriceList() {
   const router = useRouter();
-  const { parts } = useGarage();
+  const { data: parts = [], isLoading } = useParts();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredParts = parts.filter(part =>
-    part.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    part.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    part.brand?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredParts = useMemo(() => {
+    return parts.filter((part: any) =>
+      part.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      part.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      part.brand?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [parts, searchQuery]);
 
   return (
     <View style={styles.mainContainer}>
@@ -45,40 +47,46 @@ export default function PartsPriceList() {
           elevation={1}
         />
 
-        <Surface style={styles.tableCard} elevation={2}>
-          <DataTable>
-            <DataTable.Header style={styles.tableHeader}>
-              <DataTable.Title textStyle={styles.headerText}>Part Name</DataTable.Title>
-              <DataTable.Title textStyle={styles.headerText}>Category</DataTable.Title>
-              <DataTable.Title numeric textStyle={styles.headerText}>Price</DataTable.Title>
-            </DataTable.Header>
+        {isLoading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : (
+          <Surface style={styles.tableCard} elevation={2}>
+            <DataTable>
+              <DataTable.Header style={styles.tableHeader}>
+                <DataTable.Title textStyle={styles.headerText}>Part Name</DataTable.Title>
+                <DataTable.Title textStyle={styles.headerText}>Category</DataTable.Title>
+                <DataTable.Title numeric textStyle={styles.headerText}>Price</DataTable.Title>
+              </DataTable.Header>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: '85%' }}>
-              {filteredParts.map((part) => (
-                <DataTable.Row key={part.id} style={styles.row}>
-                  <DataTable.Cell>
-                    <View>
-                      <Text style={styles.partName}>{part.name}</Text>
-                      {part.brand && <Text style={styles.brandText}>{part.brand}</Text>}
-                    </View>
-                  </DataTable.Cell>
-                  <DataTable.Cell>
-                    <Text style={styles.categoryText}>{part.category}</Text>
-                  </DataTable.Cell>
-                  <DataTable.Cell numeric>
-                    <Text style={styles.priceText}>{formatCurrency(part.price)}</Text>
-                  </DataTable.Cell>
-                </DataTable.Row>
-              ))}
-              
-              {filteredParts.length === 0 && (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyText}>No parts found matching "{searchQuery}"</Text>
-                </View>
-              )}
-            </ScrollView>
-          </DataTable>
-        </Surface>
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: '85%' }}>
+                {filteredParts.map((part: any) => (
+                  <DataTable.Row key={part.id} style={styles.row}>
+                    <DataTable.Cell>
+                      <View>
+                        <Text style={styles.partName}>{part.name}</Text>
+                        {part.brand && <Text style={styles.brandText}>{part.brand}</Text>}
+                      </View>
+                    </DataTable.Cell>
+                    <DataTable.Cell>
+                      <Text style={styles.categoryText}>{part.category}</Text>
+                    </DataTable.Cell>
+                    <DataTable.Cell numeric>
+                      <Text style={styles.priceText}>{formatCurrency(part.price)}</Text>
+                    </DataTable.Cell>
+                  </DataTable.Row>
+                ))}
+                
+                {filteredParts.length === 0 && (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyText}>No parts found matching "{searchQuery}"</Text>
+                  </View>
+                )}
+              </ScrollView>
+            </DataTable>
+          </Surface>
+        )}
       </View>
     </View>
   );
@@ -92,6 +100,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchBar: {
     backgroundColor: '#FFFFFF',

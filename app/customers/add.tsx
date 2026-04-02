@@ -10,18 +10,18 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Surface, Divider } from 'react-native-paper';
-import { useGarage } from '../../src/hooks/useGarage';
-import { Customer } from '../../src/data/mockData';
+import { useAddCustomer } from '../../src/hooks/useQueries';
 
 const VEHICLE_TYPES = ['Car', 'Bike', 'Truck', 'Van'];
 
 export default function AddCustomerScreen() {
   const router = useRouter();
-  const { addCustomer } = useGarage();
+  const addCustomerMutation = useAddCustomer();
 
   // Form State
   const [name, setName] = useState('');
@@ -32,31 +32,37 @@ export default function AddCustomerScreen() {
   const [vehicleType, setVehicleType] = useState('Car');
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
 
-  const handleSave = () => {
-    if (!name.trim() || !phone.trim()) {
-      Alert.alert('Required Fields', 'Please enter at least the customer name and phone number.');
+  const handleSave = async () => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      Alert.alert('Invalid Phone', 'Please enter a valid 10-digit phone number.');
       return;
     }
 
-    const newCustomer: Customer = {
-      id: Date.now().toString(),
-      name,
-      phone,
-      address,
-      vehicles: vehicleModel ? [{
-        id: 'v' + Date.now().toString(),
-        model: vehicleModel,
-        number: vehicleNumber,
-        lastService: 'New Customer'
-      }] : [],
-      history: [],
-    };
+    try {
+      await addCustomerMutation.mutateAsync({
+        name,
+        phone: cleanPhone,
+        address,
+        vehicles: vehicleNumber && vehicleModel ? [
+          {
+            vehicleNumber: vehicleNumber.toUpperCase().trim(),
+            model: vehicleModel.trim(),
+          }
+        ] : [],
+      });
 
-    addCustomer(newCustomer);
-
-    Alert.alert('Success', 'Customer added successfully!', [
-      { text: 'OK', onPress: () => router.back() }
-    ]);
+      Alert.alert('Success', 'Customer added successfully!', [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
+    } catch (error: any) {
+      const message = error.message || 'Failed to add customer. Please try again.';
+      if (message.includes('already exists')) {
+        Alert.alert('Existing Customer', 'A customer with this phone number is already registered.');
+      } else {
+        Alert.alert('Error', message);
+      }
+    }
   };
 
   return (
@@ -210,8 +216,17 @@ export default function AddCustomerScreen() {
           </Surface>
 
           {/* Submit Button */}
-          <TouchableOpacity style={styles.submitBtn} onPress={handleSave} activeOpacity={0.8}>
-            <Text style={styles.submitBtnText}>Save Customer</Text>
+          <TouchableOpacity 
+            style={[styles.submitBtn, addCustomerMutation.isPending && { opacity: 0.7 }]} 
+            onPress={handleSave} 
+            activeOpacity={0.8}
+            disabled={addCustomerMutation.isPending}
+          >
+            {addCustomerMutation.isPending ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.submitBtnText}>Save Customer</Text>
+            )}
           </TouchableOpacity>
 
           <View style={{ height: 50 }} />

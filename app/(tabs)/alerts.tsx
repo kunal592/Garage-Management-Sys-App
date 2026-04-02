@@ -1,15 +1,13 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Share } from 'react-native';
-import { Text, Surface, Avatar, Button, Divider } from 'react-native-paper';
-import { useRouter, Stack } from "expo-router";
+import { View, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Share, ActivityIndicator } from 'react-native';
+import { Text, Surface, Divider } from 'react-native-paper';
+import { Stack } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useGarage } from "../../src/hooks/useGarage";
+import { useCustomers } from "../../src/hooks/useQueries";
 import { colors } from "../../src/theme/colors";
-import { formatCurrency } from "../../src/utils/helpers";
 
 export default function AlertsScreen() {
-  const router = useRouter();
-  const { customers } = useGarage();
+  const { data: customers = [], isLoading } = useCustomers();
 
   const upcomingServices = useMemo(() => {
     const reminders: any[] = [];
@@ -17,17 +15,17 @@ export default function AlertsScreen() {
     const tomorrow = new Date();
     tomorrow.setHours(now.getHours() + 24);
 
-    customers.forEach(customer => {
-      customer.vehicles.forEach(vehicle => {
+    customers.forEach((customer: any) => {
+      customer.vehicles?.forEach((vehicle: any) => {
         if (vehicle.nextServiceDate) {
           const serviceDate = new Date(vehicle.nextServiceDate);
           if (serviceDate >= now && serviceDate <= tomorrow) {
             reminders.push({
-              id: vehicle.id, // using vehicle id for key
+              id: vehicle.id,
               customerName: customer.name,
               phone: customer.phone,
               vehicleModel: vehicle.model,
-              vehicleNumber: vehicle.number,
+              vehicleNumber: vehicle.vehicleNumber || vehicle.number,
               serviceDate: vehicle.nextServiceDate
             });
           }
@@ -65,65 +63,71 @@ Thank you.`;
       />
       <StatusBar barStyle="dark-content" />
 
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerSection}>
-          <Text style={styles.headerTitle}>Upcoming Reminders</Text>
-          <Text style={styles.headerSub}>Services due in the next 24 hours</Text>
+      {isLoading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
-
-        {upcomingServices.length > 0 ? (
-          upcomingServices.map((reminder, idx) => (
-            <Surface key={idx} style={styles.alertCard} elevation={2}>
-              <View style={styles.cardHeader}>
-                <View style={styles.vehicleInfo}>
-                   <View style={styles.iconCircle}>
-                      <MaterialCommunityIcons name="car-wrench" size={24} color={colors.primary} />
-                   </View>
-                   <View style={{ marginLeft: 12 }}>
-                      <Text style={styles.vehicleName}>{reminder.vehicleModel}</Text>
-                      <Text style={styles.vehicleNumber}>{reminder.vehicleNumber}</Text>
-                   </View>
-                </View>
-                <View style={styles.tomorrowBadge}>
-                  <Text style={styles.tomorrowText}>Tomorrow</Text>
-                </View>
-              </View>
-
-              <Divider style={styles.divider} />
-
-              <View style={styles.customerInfo}>
-                <View style={styles.infoRow}>
-                  <MaterialCommunityIcons name="account-circle-outline" size={18} color="#64748B" />
-                  <Text style={styles.infoLabel}>{reminder.customerName}</Text>
-                </View>
-                <View style={[styles.infoRow, { marginTop: 4 }]}>
-                  <MaterialCommunityIcons name="phone-outline" size={18} color="#64748B" />
-                  <Text style={styles.infoLabel}>{reminder.phone}</Text>
-                </View>
-                <View style={[styles.infoRow, { marginTop: 4 }]}>
-                  <MaterialCommunityIcons name="calendar-clock" size={18} color="#64748B" />
-                  <Text style={styles.infoLabel}>Due: {reminder.serviceDate}</Text>
-                </View>
-              </View>
-
-              <TouchableOpacity 
-                style={styles.sendBtn}
-                onPress={() => handleSendReminder(reminder)}
-              >
-                <MaterialCommunityIcons name="whatsapp" size={20} color="#FFFFFF" />
-                <Text style={styles.sendBtnText}>Send Reminder</Text>
-              </TouchableOpacity>
-            </Surface>
-          ))
-        ) : (
-          <View style={styles.emptyState}>
-             <MaterialCommunityIcons name="bell-off-outline" size={80} color="#E2E8F0" />
-             <Text style={styles.emptyTitle}>All caught up!</Text>
-             <Text style={styles.emptyText}>No services scheduled for tomorrow.</Text>
+      ) : (
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+          <View style={styles.headerSection}>
+            <Text style={styles.headerTitle}>Upcoming Reminders</Text>
+            <Text style={styles.headerSub}>Services due in the next 24 hours</Text>
           </View>
-        )}
-        <View style={{ height: 110 }} />
-      </ScrollView>
+
+          {upcomingServices.length > 0 ? (
+            upcomingServices.map((reminder, idx) => (
+              <Surface key={idx} style={styles.alertCard} elevation={2}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.vehicleInfo}>
+                     <View style={styles.iconCircle}>
+                        <MaterialCommunityIcons name="car-wrench" size={24} color={colors.primary} />
+                     </View>
+                     <View style={{ marginLeft: 12 }}>
+                        <Text style={styles.vehicleName}>{reminder.vehicleModel}</Text>
+                        <Text style={styles.vehicleNumber}>{reminder.vehicleNumber}</Text>
+                     </View>
+                  </View>
+                  <View style={styles.tomorrowBadge}>
+                    <Text style={styles.tomorrowText}>Tomorrow</Text>
+                  </View>
+                </View>
+
+                <Divider style={styles.divider} />
+
+                <View style={styles.customerInfo}>
+                  <View style={styles.infoRow}>
+                    <MaterialCommunityIcons name="account-circle-outline" size={18} color="#64748B" />
+                    <Text style={styles.infoLabel}>{reminder.customerName}</Text>
+                  </View>
+                  <View style={[styles.infoRow, { marginTop: 4 }]}>
+                    <MaterialCommunityIcons name="phone-outline" size={18} color="#64748B" />
+                    <Text style={styles.infoLabel}>{reminder.phone}</Text>
+                  </View>
+                  <View style={[styles.infoRow, { marginTop: 4 }]}>
+                    <MaterialCommunityIcons name="calendar-clock" size={18} color="#64748B" />
+                    <Text style={styles.infoLabel}>Due: {new Date(reminder.serviceDate).toLocaleDateString()}</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity 
+                  style={styles.sendBtn}
+                  onPress={() => handleSendReminder(reminder)}
+                >
+                  <MaterialCommunityIcons name="whatsapp" size={20} color="#FFFFFF" />
+                  <Text style={styles.sendBtnText}>Send Reminder</Text>
+                </TouchableOpacity>
+              </Surface>
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+               <MaterialCommunityIcons name="bell-off-outline" size={80} color="#E2E8F0" />
+               <Text style={styles.emptyTitle}>All caught up!</Text>
+               <Text style={styles.emptyText}>No services scheduled for tomorrow.</Text>
+            </View>
+          )}
+          <View style={{ height: 110 }} />
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -132,6 +136,11 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   container: {
     padding: 16,

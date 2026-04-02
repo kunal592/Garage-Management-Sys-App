@@ -17,6 +17,8 @@ model Customer {
   createdAt DateTime  @default(now())
   vehicles  Vehicle[]
   services  Service[]
+
+  @@index([name])
 }
 
 model Vehicle {

@@ -24,15 +24,21 @@ export const getCustomerById = async (req: Request, res: Response, next: NextFun
   }
 };
 
+import { customerSchema } from '../utils/validation';
+
 export const createCustomer = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, phone, address } = req.body;
-    if (!name || !phone) {
-      return res.status(400).json({ message: 'Name and phone are required' });
-    }
-    const customer = await customerService.createCustomer({ name, phone, address });
+    const validatedData = customerSchema.parse(req.body);
+    const customer = await customerService.createCustomer(validatedData);
     res.status(201).json(customer);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ message: 'Validation failed', errors: error.errors });
+    }
+    if (error.code === 'P2002') {
+      return res.status(409).json({ message: 'A customer with this phone number already exists.' });
+    }
+    console.error('Create customer error:', error);
     next(error);
   }
 };

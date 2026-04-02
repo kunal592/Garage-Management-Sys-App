@@ -21,20 +21,33 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-router.post('/upload-image-vehicle', upload.single('imageFile'), (req: Request, res: Response) => {
+import prisma from '../prisma/client';
+
+router.post('/upload-image-vehicle', upload.single('imageFile'), async (req: Request, res: Response, next: NextFunction) => {
   if (!req.file) {
     return res.status(400).json({ message: 'Please upload an image' });
   }
 
-  const { serviceId, vehicleId } = req.body;
+  try {
+    const { serviceId, vehicleId } = req.body;
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
 
-  // Logic: Store image for 7 days only
-  // For now, just return the path
-  res.json({
-    message: 'Image uploaded successfully',
-    url: `/uploads/${req.file.filename}`,
-    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
-  });
+    const imageRecord = await prisma.vehicleImage.create({
+      data: {
+        url: `/uploads/${req.file.filename}`,
+        serviceId: serviceId || null,
+        vehicleId: vehicleId || null,
+        expiresAt
+      }
+    });
+
+    res.json({
+      message: 'Image uploaded successfully',
+      image: imageRecord
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 export default router;

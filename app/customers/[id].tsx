@@ -1,30 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View, StyleSheet, ScrollView, Linking, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Text, Surface, Button, Avatar } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../src/theme/colors";
-import { useGarage } from "../../src/hooks/useGarage";
-import { Customer } from "../../src/data/mockData";
+import { useCustomerDetail } from "../../src/hooks/useQueries";
 
 export default function CustomerDetails() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { getCustomerById } = useGarage();
-  const [customer, setCustomer] = useState<Customer | null>(null);
-  const [loading, setLoading] = useState(true);
+  
+  // TanStack Query Hook
+  const { data: customer, isLoading } = useCustomerDetail(id as string);
 
-  useEffect(() => {
-    const loadCustomer = async () => {
-      setLoading(true);
-      const data = await getCustomerById(id as string);
-      setCustomer(data);
-      setLoading(false);
-    };
-    loadCustomer();
-  }, [id]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -44,7 +33,7 @@ export default function CustomerDetails() {
     Linking.openURL(`tel:${customer.phone}`);
   };
 
-  const initials = customer.name.split(' ').map(n => n[0]).join('');
+  const initials = customer.name.split(' ').map((n: string) => n[0]).join('');
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -104,14 +93,14 @@ export default function CustomerDetails() {
 
         {/* Vehicle Section */}
         <Text style={styles.sectionTitle}>Vehicle Details</Text>
-        {customer.vehicles?.map(vehicle => (
+        {customer.vehicles?.map((vehicle: any) => (
           <Surface key={vehicle.id} style={[styles.detailCard, { backgroundColor: colors.surface }]}>
             <View style={styles.detailItem}>
                 <MaterialCommunityIcons name="car" size={24} color={colors.primary} style={{ marginRight: 12 }} />
                 <View>
                   <Text style={styles.detailLabel}>Model</Text>
                   <Text style={styles.detailValue}>{vehicle.model}</Text>
-                  <Text style={styles.detailSubValue}>{vehicle.vehicleNumber || (vehicle as any).number}</Text>
+                  <Text style={styles.detailSubValue}>{vehicle.vehicleNumber || vehicle.number}</Text>
                 </View>
             </View>
           </Surface>
@@ -119,7 +108,7 @@ export default function CustomerDetails() {
 
         {/* History Section */}
         <Text style={styles.sectionTitle}>Service History</Text>
-        {customer.history?.map(item => (
+        {customer.history?.map((item: any) => (
           <Surface key={item.id} style={styles.detailCard}>
             <View style={styles.historyHeader}>
               <Text style={styles.historyDate}>{item.date}</Text>

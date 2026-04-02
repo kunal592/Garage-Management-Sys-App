@@ -1,5 +1,5 @@
 import prisma from './client';
-import { MOCK_DATA } from '../data/mockData';
+import { MOCK_DATA } from './seedData';
 
 async function main() {
   console.log('Start seeding...');
@@ -54,7 +54,7 @@ async function main() {
       // The mock data has history per customer, but let's associate it with the vehicle
       // For simplicity, we'll map the customer history to their first vehicle if multiple exist
       // Or filter simple history.
-      const vehicleHistory = cust.history.filter(h => h.vehicleModel === v.model || !h.vehicleModel);
+      const vehicleHistory = cust.history.filter((h: any) => h.vehicleModel === v.model || !h.vehicleModel);
       
       for (const h of vehicleHistory) {
         await prisma.service.upsert({

@@ -4,14 +4,14 @@ import { Surface, Avatar, List, Icon } from 'react-native-paper';
 import { LineChart, PieChart } from 'react-native-chart-kit';
 import { colors } from '../../src/theme/colors';
 import { formatCurrency } from '../../src/utils/helpers';
-import { useGarage } from '../../src/hooks/useGarage';
+import { useAnalytics } from '../../src/hooks/useQueries';
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function AnalyticsScreen() {
-  const { analytics, loading } = useGarage();
+  const { data: analytics, isLoading } = useAnalytics();
 
-  if (loading || !analytics) {
+  if (isLoading || !analytics) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -89,8 +89,8 @@ export default function AnalyticsScreen() {
           </View>
           <LineChart
             data={{
-              labels: analytics.monthlyRevenue.labels,
-              datasets: [{ data: analytics.monthlyRevenue.data }],
+              labels: analytics.monthlyRevenue.labels || [],
+              datasets: [{ data: analytics.monthlyRevenue.data || [] }],
             }}
             width={screenWidth - 80}
             height={200}
@@ -109,7 +109,7 @@ export default function AnalyticsScreen() {
           <Text style={styles.chartTitle}>Service Breakdown</Text>
           <Text style={styles.chartSubtitle}>Distribution by job category</Text>
           <PieChart
-            data={analytics.serviceDistribution.map(item => ({
+            data={(analytics.serviceDistribution || []).map((item: any) => ({
               ...item,
               color: item.name === 'Oil Change' ? '#4F46E5' :
                      item.name === 'Brake Repair' ? '#0EA5E9' :
@@ -132,7 +132,7 @@ export default function AnalyticsScreen() {
         </View>
 
         <Surface style={styles.leaderboardCard} elevation={1}>
-          {analytics.topCustomers.map((customer, index) => (
+          {(analytics.topCustomers || []).map((customer: any, index: number) => (
             <List.Item
               key={customer.id}
               title={customer.name}
@@ -156,7 +156,7 @@ export default function AnalyticsScreen() {
               )}
               style={[
                 styles.listItem,
-                index === analytics.topCustomers.length - 1 && { borderBottomWidth: 0 }
+                index === (analytics.topCustomers?.length || 0) - 1 && { borderBottomWidth: 0 }
               ]}
             />
           ))}
@@ -328,4 +328,3 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
-

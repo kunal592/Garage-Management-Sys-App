@@ -1,23 +1,26 @@
-import React, { useState } from "react";
-import { View, StyleSheet, FlatList, StatusBar, TouchableOpacity, TextInput } from "react-native";
+import React, { useState, useMemo } from "react";
+import { View, StyleSheet, FlatList, StatusBar, TouchableOpacity, TextInput, ActivityIndicator } from "react-native";
 import { Text, FAB, Surface } from "react-native-paper";
 import { useRouter, Stack } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import CustomerCard from "../../components/CustomerCard";
-import { useGarage } from "../../src/hooks/useGarage";
+import { useCustomers } from "../../src/hooks/useQueries";
 import { colors } from "../../src/theme/colors";
 
 export default function Customers() {
   const router = useRouter();
-  const { customers } = useGarage();
+  const { data: customers = [], isLoading } = useCustomers();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredCustomers = customers.filter(
-    (customer) =>
-      customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.phone.includes(searchQuery) ||
-      customer.vehicles.some(v => v.model.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredCustomers = useMemo(() => {
+    return customers.filter(
+      (customer: any) =>
+        customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        customer.phone.includes(searchQuery) ||
+        customer.vehicles?.some((v: any) => v.model.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        customer.vehicles?.some((v: any) => v.vehicleNumber?.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+  }, [customers, searchQuery]);
 
   return (
     <View style={styles.container}>
@@ -59,28 +62,34 @@ export default function Customers() {
           </TouchableOpacity>
         </View>
 
-        <FlatList
-          data={filteredCustomers}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <CustomerCard
-              name={item.name}
-              phone={item.phone}
-              vehicle={item.vehicles[0]?.model || 'N/A'}
-              lastService={item.vehicles[0]?.lastService || 'Never'}
-              onPress={() => router.push(`/customers/${item.id}`)}
-            />
-          )}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <MaterialCommunityIcons name="account-search-outline" size={80} color="#CBD5E1" />
-              <Text style={styles.emptyText}>No customers found</Text>
-              <Text style={styles.emptySubText}>Try searching with a different name or phone number</Text>
-            </View>
-          }
-        />
+        {isLoading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={filteredCustomers}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <CustomerCard
+                name={item.name}
+                phone={item.phone}
+                vehicle={item.vehicles?.[0]?.model || 'N/A'}
+                lastService={item.vehicles?.[0]?.lastServiceDate || 'Never'}
+                onPress={() => router.push(`/customers/${item.id}`)}
+              />
+            )}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <MaterialCommunityIcons name="account-search-outline" size={80} color="#CBD5E1" />
+                <Text style={styles.emptyText}>No customers found</Text>
+                <Text style={styles.emptySubText}>Try searching with a different name or phone number</Text>
+              </View>
+            }
+          />
+        )}
       </View>
 
       <FAB
@@ -98,6 +107,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     flex: 1,

@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, StatusBar, Alert, TouchableOpacity } from 'react-native';
-import { Text, TextInput, Button, Surface, List, Divider, Avatar, IconButton } from 'react-native-paper';
+import { Text, TextInput, Button, Surface, Divider, Avatar, IconButton } from 'react-native-paper';
 import { colors } from '../theme/colors';
-import { formatCurrency } from '../utils/helpers';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { useGarage } from '../hooks/useGarage';
+import { useCustomerByPhone, useAddService } from '../hooks/useQueries';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddService'>;
@@ -17,11 +16,11 @@ interface ServiceItem {
 }
 
 const AddServiceScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { getCustomerByPhone, addService } = useGarage();
-
-  // Search State
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [foundCustomer, setFoundCustomer] = useState<any>(null);
+  
+  // Queries
+  const { data: foundCustomer } = useCustomerByPhone(phoneNumber);
+  const addServiceMutation = useAddService();
 
   // Form State
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
@@ -30,20 +29,12 @@ const AddServiceScreen: React.FC<Props> = ({ route, navigation }) => {
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'Performed' | 'Pending'>('Performed');
 
-  // Auto-suggest logic
+  // Auto-select vehicle when customer is found
   useEffect(() => {
-    if (phoneNumber.length >= 10) {
-      const customer = getCustomerByPhone(phoneNumber);
-      if (customer) {
-        setFoundCustomer(customer);
-        setSelectedVehicleId(customer.vehicles[0]?.id || '');
-      } else {
-        setFoundCustomer(null);
-      }
-    } else {
-        setFoundCustomer(null);
+    if (foundCustomer && foundCustomer.vehicles?.length > 0) {
+      setSelectedVehicleId(foundCustomer.vehicles[0].id);
     }
-  }, [phoneNumber, getCustomerByPhone]);
+  }, [foundCustomer]);
 
   const totalPartsCost = useMemo(() => {
     return items.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
@@ -61,7 +52,7 @@ const AddServiceScreen: React.FC<Props> = ({ route, navigation }) => {
     if (items.length > 1) setItems(items.filter(item => item.id !== id));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!foundCustomer || !selectedVehicleId) {
       Alert.alert('Selection Required', 'Please find a customer by phone number and select a vehicle.');
       return;
@@ -75,20 +66,24 @@ const AddServiceScreen: React.FC<Props> = ({ route, navigation }) => {
     const labour = parseFloat(labourCost) || 0;
     const total = totalPartsCost + labour;
 
-    const newService = {
-      id: Math.random().toString(36).substr(2, 9),
-      type: items.map(i => i.name).filter(Boolean).join(', '),
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      cost: total,
-      parts: totalPartsCost,
-      labour: labour,
-      status: status,
-      notes: notes,
-    };
+    try {
+      await addServiceMutation.mutateAsync({
+        customerId: foundCustomer.id,
+        vehicleId: selectedVehicleId,
+        serviceItems: items.map(i => i.name),
+        partsCost: totalPartsCost,
+        serviceCost: labour,
+        totalCost: total,
+        status: status,
+        notes: notes,
+        date: new Date().toISOString()
+      });
 
-    addService(foundCustomer.id, selectedVehicleId, newService);
-    Alert.alert('Success', 'Service Record Added Successfully!');
-    navigation.goBack();
+      Alert.alert('Success', 'Service Record Added Successfully!');
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to add service record. Please try again.');
+    }
   };
 
   return (
@@ -130,7 +125,7 @@ const AddServiceScreen: React.FC<Props> = ({ route, navigation }) => {
               </View>
 
               <Text variant="labelMedium" style={[styles.label, { marginTop: 15, marginBottom: 5 }]}>Select Vehicle</Text>
-              {foundCustomer.vehicles.map((v: any) => (
+              {foundCustomer.vehicles?.map((v: any) => (
                 <TouchableOpacity
                   key={v.id}
                   style={[styles.vehicleBtn, selectedVehicleId === v.id && styles.vehicleBtnActive]}
@@ -138,7 +133,7 @@ const AddServiceScreen: React.FC<Props> = ({ route, navigation }) => {
                 >
                   <MaterialCommunityIcons name="car" size={20} color={selectedVehicleId === v.id ? colors.primary : colors.textSecondary} />
                   <Text style={[styles.vehicleBtnText, selectedVehicleId === v.id && { color: colors.primary, fontWeight: '700' }]}>
-                    {v.model} ({v.number})
+                    {v.model} ({v.vehicleNumber})
                   </Text>
                   {selectedVehicleId === v.id && (
                      <MaterialCommunityIcons name="check-circle" size={18} color={colors.primary} style={{ marginLeft: 'auto' }} />
@@ -273,7 +268,8 @@ const AddServiceScreen: React.FC<Props> = ({ route, navigation }) => {
             style={styles.saveBtn}
             contentStyle={{ height: 54 }}
             labelStyle={{ fontSize: 16, fontWeight: '800' }}
-            disabled={!foundCustomer || items.some(i => !i.name)}
+            loading={addServiceMutation.isPending}
+            disabled={!foundCustomer || items.some(i => !i.name) || addServiceMutation.isPending}
         >Confirm Service</Button>
 
         <View style={{ height: 40 }} />

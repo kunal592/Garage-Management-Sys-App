@@ -1,18 +1,26 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Share } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Share, ActivityIndicator } from 'react-native';
 import { Text, Surface, Avatar, Divider, Button } from 'react-native-paper';
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useGarage } from "../../src/hooks/useGarage";
+import { useServiceDetail } from "../../src/hooks/useQueries";
 import { colors } from "../../src/theme/colors";
 import { formatCurrency } from "../../src/utils/helpers";
 
 export default function ServiceDetails() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { getServiceById } = useGarage();
+  
+  // TanStack Query Hook
+  const { data: service, isLoading } = useServiceDetail(id as string);
 
-  const service = getServiceById(id as string);
+  if (isLoading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   if (!service) {
     return (
@@ -81,7 +89,7 @@ Status: ${service.status}`;
           {/* Customer & Vehicle */}
           <View style={styles.infoSection}>
              <View style={styles.infoRow}>
-                <Avatar.Text size={48} label={service.customerName[0]} style={{ backgroundColor: colors.primary + '20' }} labelStyle={{ color: colors.primary }} />
+                <Avatar.Text size={48} label={service.customerName ? service.customerName[0] : '?'} style={{ backgroundColor: colors.primary + '20' }} labelStyle={{ color: colors.primary }} />
                 <View style={styles.infoText}>
                   <Text style={styles.name}>{service.customerName}</Text>
                   <Text style={styles.phone}>{service.customerPhone}</Text>
@@ -107,7 +115,7 @@ Status: ${service.status}`;
           {((service.selectedParts && service.selectedParts.length > 0) || (service.customParts && service.customParts.length > 0)) && (
             <View style={{ marginTop: 5 }}>
               <Text style={styles.sectionTitle}>PARTS & MATERIALS</Text>
-              {[...(service.selectedParts || []), ...(service.customParts || [])].map((part, idx) => (
+              {[...(service.selectedParts || []), ...(service.customParts || [])].map((part: any, idx: number) => (
                 <View key={idx} style={styles.partItemRow}>
                   <Text style={styles.partItemName}>• {part.name} (x{part.quantity})</Text>
                   <Text style={styles.partItemPrice}>{formatCurrency(part.price * part.quantity)}</Text>
@@ -119,17 +127,17 @@ Status: ${service.status}`;
           {/* Cost Breakdown */}
           <View style={styles.breakdown}>
              <View style={styles.breakdownRow}>
-               <Text style={styles.breakdownLabel}>Parts & Consumables</Text>
-               <Text style={styles.breakdownValue}>{formatCurrency(service.parts || 0)}</Text>
+                <Text style={styles.breakdownLabel}>Parts & Consumables</Text>
+                <Text style={styles.breakdownValue}>{formatCurrency(service.partsCost || service.parts || 0)}</Text>
              </View>
              <View style={styles.breakdownRow}>
-               <Text style={styles.breakdownLabel}>Labour Charges</Text>
-               <Text style={styles.breakdownValue}>{formatCurrency(service.labour || 0)}</Text>
+                <Text style={styles.breakdownLabel}>Labour Charges</Text>
+                <Text style={styles.breakdownValue}>{formatCurrency(service.serviceCost || service.labour || 0)}</Text>
              </View>
              <Divider style={{ marginVertical: 12 }} />
              <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>GRAND TOTAL</Text>
-                <Text style={styles.totalValue}>{formatCurrency(service.cost)}</Text>
+                <Text style={styles.totalValue}>{formatCurrency(service.totalCost || service.cost)}</Text>
              </View>
           </View>
 
@@ -146,7 +154,7 @@ Status: ${service.status}`;
                 <MaterialCommunityIcons name="calendar-star" size={20} color="#F59E0B" />
                 <View style={{ marginLeft: 12 }}>
                   <Text style={styles.reminderLabel}>Next Service Scheduled</Text>
-                  <Text style={styles.reminderDate}>{service.nextServiceDate}</Text>
+                  <Text style={styles.reminderDate}>{new Date(service.nextServiceDate).toLocaleDateString()}</Text>
                 </View>
              </Surface>
           )}

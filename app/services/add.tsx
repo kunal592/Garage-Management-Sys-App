@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, StatusBar, Alert, TouchableOpacity } from 'react-native';
-import { Text, TextInput, Button, Surface, Avatar, IconButton, Divider } from 'react-native-paper';
-import { useRouter, Stack } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Avatar, Divider, IconButton, Surface, Text, TextInput } from 'react-native-paper';
+import { useAddCustomer, useAddService, useCustomers, useParts } from '../../src/hooks/useQueries';
 import { colors } from '../../src/theme/colors';
-import { useGarage } from '../../src/hooks/useGarage';
 
 interface ListItem {
   id: string;
@@ -14,7 +14,12 @@ interface ListItem {
 
 export default function AddServiceScreen() {
   const router = useRouter();
-  const { getCustomerByPhone, addService, addCustomer } = useGarage();
+
+  // TanStack Query Hooks
+  const { data: customers = [] } = useCustomers();
+  const { data: parts = [] } = useParts();
+  const addCustomerMutation = useAddCustomer();
+  const addServiceMutation = useAddService();
 
   // Search & Found State
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -29,18 +34,16 @@ export default function AddServiceScreen() {
 
   // Form State
   const [serviceItems, setServiceItems] = useState<ListItem[]>([{ id: 's1', name: '', price: '' }]);
-  const [selectedParts, setSelectedParts] = useState<{[key: string]: number}>({}); // partId -> quantity
+  const [selectedParts, setSelectedParts] = useState<{ [key: string]: number }>({}); // partId -> quantity
   const [customParts, setCustomParts] = useState<ListItem[]>([]);
   const [expandedCategory, setExpandedCategory] = useState<string | null>('Engine Parts');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'Performed' | 'Pending'>('Performed');
   const [nextServiceDate, setNextServiceDate] = useState('');
 
-  const { parts } = useGarage();
-
   const partsByCategory = useMemo(() => {
-    const categories: {[key: string]: any[]} = {};
-    parts.forEach(part => {
+    const categories: { [key: string]: any[] } = {};
+    parts.forEach((part: any) => {
       if (!categories[part.category]) categories[part.category] = [];
       categories[part.category].push(part);
     });
@@ -51,10 +54,10 @@ export default function AddServiceScreen() {
   useEffect(() => {
     const cleanPhone = phoneNumber.replace(/\D/g, '');
     if (cleanPhone.length >= 10) {
-      const customer = getCustomerByPhone(cleanPhone);
+      const customer = customers.find((c: any) => c.phone.replace(/\D/g, '').includes(cleanPhone));
       if (customer) {
         setFoundCustomer(customer);
-        setSelectedVehicleId(customer.vehicles[0]?.id || '');
+        setSelectedVehicleId(customer.vehicles?.[0]?.id || '');
         setIsNewCustomer(false);
       } else {
         setFoundCustomer(null);
@@ -64,7 +67,7 @@ export default function AddServiceScreen() {
       setFoundCustomer(null);
       setIsNewCustomer(false);
     }
-  }, [phoneNumber]);
+  }, [phoneNumber, customers]);
 
   const totalLabourCost = useMemo(() => {
     return serviceItems.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
@@ -72,7 +75,7 @@ export default function AddServiceScreen() {
 
   const totalPartsCost = useMemo(() => {
     const masterPartsTotal = Object.keys(selectedParts).reduce((sum, partId) => {
-      const part = parts.find(p => p.id === partId);
+      const part = parts.find((p: any) => p.id === partId);
       return sum + (part ? part.price * selectedParts[partId] : 0);
     }, 0);
     const customPartsTotal = customParts.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
@@ -96,10 +99,10 @@ export default function AddServiceScreen() {
   const setShortcutDate = (months: number) => {
     const d = new Date();
     d.setMonth(d.getMonth() + months);
-    setNextServiceDate(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
+    setNextServiceDate(d.toISOString().split('T')[0]); // Use YYYY-MM-DD for reliable parsing
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     let finalCustomerId = foundCustomer?.id;
     let finalVehicleId = selectedVehicleId;
 
@@ -116,32 +119,31 @@ export default function AddServiceScreen() {
         return;
       }
 
-      const newCustId = Math.random().toString(36).substr(2, 9);
-      const newVehId = Math.random().toString(36).substr(2, 9);
-      
-      const newCustomer = {
-        id: newCustId,
-        name: newCustomerName,
-        phone: phoneNumber,
-        address: '',
-        vehicles: [{
-          id: newVehId,
-          model: newVehicleModel,
-          number: newVehicleNumber,
-          lastService: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-        }],
-        history: []
-      };
+      try {
+        const newCustomer = await addCustomerMutation.mutateAsync({
+          name: newCustomerName,
+          phone: phoneNumber.replace(/\D/g, ''),
+          address: '',
+          vehicles: [
+            {
+              model: newVehicleModel.trim(),
+              vehicleNumber: newVehicleNumber.toUpperCase().trim()
+            }
+          ]
+        });
 
-      addCustomer(newCustomer);
-      finalCustomerId = newCustId;
-      finalVehicleId = newVehId;
+        finalCustomerId = newCustomer.id;
+        finalVehicleId = newCustomer.vehicles?.[0]?.id;
+      } catch (error) {
+        Alert.alert('Error', 'Failed to create customer');
+        return;
+      }
     }
 
     // Service items validation
     const hasService = serviceItems.some(i => i.name && i.price);
     const hasParts = Object.keys(selectedParts).length > 0 || customParts.some(i => i.name && i.price);
-    
+
     if (!hasService && !hasParts) {
       Alert.alert('Empty Form', 'Please add at least one service or part item.');
       return;
@@ -149,40 +151,33 @@ export default function AddServiceScreen() {
 
     const serviceNames = serviceItems.map(i => i.name).filter(Boolean);
     const partsNames = [
-      ...Object.keys(selectedParts).map(id => parts.find(p => p.id === id)?.name),
+      ...Object.keys(selectedParts).map(id => parts.find((p: any) => p.id === id)?.name),
       ...customParts.map(i => i.name)
     ].filter(Boolean);
-    
+
     const summary = [...serviceNames, ...partsNames].join(', ') || 'General Service';
 
-    const newService = {
-      id: Math.random().toString(36).substr(2, 9),
-      type: summary,
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      cost: totalCost,
-      parts: totalPartsCost,
-      labour: totalLabourCost,
+    const newServiceData = {
+      customerId: finalCustomerId,
+      vehicleId: finalVehicleId,
       status: status,
-      notes: notes,
-      nextServiceDate: nextServiceDate,
-      selectedParts: Object.keys(selectedParts).map(id => ({
-        id,
-        name: parts.find(p => p.id === id)?.name || '',
-        price: parts.find(p => p.id === id)?.price || 0,
-        quantity: selectedParts[id]
-      })),
-      customParts: customParts.filter(i => i.name && i.price).map(i => ({
-        id: i.id,
-        name: i.name,
-        price: parseFloat(i.price),
-        quantity: 1
-      }))
-    } as any;
+      serviceItems: serviceNames as string[],
+      serviceCost: totalLabourCost,
+      partsCost: totalPartsCost,
+      totalCost: totalCost,
+      nextServiceDate: nextServiceDate ? new Date(nextServiceDate).toISOString() : null,
+      notes: notes
+      // Note: You might want to pass structured parts too if your backend supports it
+    };
 
-    addService(finalCustomerId, finalVehicleId, newService);
-    Alert.alert('Success', 'Service Record Added Successfully!', [
-      { text: 'OK', onPress: () => router.back() }
-    ]);
+    try {
+      await addServiceMutation.mutateAsync(newServiceData);
+      Alert.alert('Success', 'Service Record Added Successfully!', [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save service record');
+    }
   };
 
   return (
@@ -201,7 +196,7 @@ export default function AddServiceScreen() {
           ),
         }}
       />
-      
+
       <StatusBar barStyle="light-content" backgroundColor="#1A3A3A" />
 
       <KeyboardAvoidingView
@@ -228,7 +223,7 @@ export default function AddServiceScreen() {
                 <View style={styles.customerRow}>
                   <Avatar.Text
                     size={40}
-                    label={foundCustomer.name[0]}
+                    label={foundCustomer.name ? foundCustomer.name[0] : '?'}
                     style={{ backgroundColor: '#2DD4BF20' }}
                     labelStyle={{ color: '#2DD4BF', fontWeight: '700' }}
                   />
@@ -239,7 +234,7 @@ export default function AddServiceScreen() {
                 </View>
 
                 <Text style={[styles.label, { marginTop: 15, marginBottom: 5 }]}>Select Vehicle</Text>
-                {foundCustomer.vehicles.map((v: any) => (
+                {foundCustomer.vehicles?.map((v: any) => (
                   <TouchableOpacity
                     key={v.id}
                     style={[styles.vehicleBtn, selectedVehicleId === v.id && styles.vehicleBtnActive]}
@@ -247,10 +242,10 @@ export default function AddServiceScreen() {
                   >
                     <MaterialCommunityIcons name="car" size={20} color={selectedVehicleId === v.id ? '#2DD4BF' : colors.textSecondary} />
                     <Text style={[styles.vehicleBtnText, selectedVehicleId === v.id && { color: '#2DD4BF', fontWeight: '700' }]}>
-                      {v.model} ({v.number})
+                      {v.model} ({v.vehicleNumber || v.number})
                     </Text>
                     {selectedVehicleId === v.id && (
-                       <MaterialCommunityIcons name="check-circle" size={18} color="#2DD4BF" style={{ marginLeft: 'auto' }} />
+                      <MaterialCommunityIcons name="check-circle" size={18} color="#2DD4BF" style={{ marginLeft: 'auto' }} />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -263,7 +258,7 @@ export default function AddServiceScreen() {
                   <MaterialCommunityIcons name="account-plus" size={16} color="#0D9488" />
                   <Text style={styles.newTagText}>New Customer Detected</Text>
                 </View>
-                
+
                 <TextInput
                   mode="outlined"
                   label="Customer Name"
@@ -338,12 +333,13 @@ export default function AddServiceScreen() {
               </View>
             ))}
           </Surface>
+
           <Surface style={styles.formCard} elevation={1}>
             <View style={styles.sectionHeader}>
               <View>
                 <Text style={styles.sectionTitle}>Parts & Consumables</Text>
                 <TouchableOpacity onPress={() => router.push('/parts/price-list')}>
-                   <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>View Price List</Text>
+                  <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>View Price List</Text>
                 </TouchableOpacity>
               </View>
               <TouchableOpacity onPress={() => setCustomParts([...customParts, { id: Math.random().toString(), name: '', price: '' }])} style={styles.addItemBtn}>
@@ -355,15 +351,15 @@ export default function AddServiceScreen() {
             {/* Categorized Master List */}
             {Object.keys(partsByCategory).map(category => (
               <View key={category} style={styles.categoryContainer}>
-                <TouchableOpacity 
-                   style={styles.categoryHeader} 
-                   onPress={() => setExpandedCategory(expandedCategory === category ? null : category)}
+                <TouchableOpacity
+                  style={styles.categoryHeader}
+                  onPress={() => setExpandedCategory(expandedCategory === category ? null : category)}
                 >
                   <Text style={styles.categoryTitle}>{category}</Text>
-                  <MaterialCommunityIcons 
-                    name={expandedCategory === category ? "chevron-up" : "chevron-down"} 
-                    size={24} 
-                    color={colors.textSecondary} 
+                  <MaterialCommunityIcons
+                    name={expandedCategory === category ? "chevron-up" : "chevron-down"}
+                    size={24}
+                    color={colors.textSecondary}
                   />
                 </TouchableOpacity>
 
@@ -373,8 +369,8 @@ export default function AddServiceScreen() {
                       const isSelected = !!selectedParts[part.id];
                       return (
                         <View key={part.id} style={styles.partSelectionRow}>
-                          <TouchableOpacity 
-                            style={styles.partInfo} 
+                          <TouchableOpacity
+                            style={styles.partInfo}
                             onPress={() => {
                               if (isSelected) {
                                 const newParts = { ...selectedParts };
@@ -385,22 +381,22 @@ export default function AddServiceScreen() {
                               }
                             }}
                           >
-                            <MaterialCommunityIcons 
-                              name={isSelected ? "checkbox-marked" : "checkbox-blank-outline"} 
-                              size={24} 
-                              color={isSelected ? colors.primary : colors.textSecondary} 
+                            <MaterialCommunityIcons
+                              name={isSelected ? "checkbox-marked" : "checkbox-blank-outline"}
+                              size={24}
+                              color={isSelected ? colors.primary : colors.textSecondary}
                             />
                             <View style={{ marginLeft: 10 }}>
                               <Text style={[styles.partName, isSelected && { fontWeight: '800' }]}>{part.name}</Text>
                               <Text style={styles.partPrice}>₹{part.price}</Text>
                             </View>
                           </TouchableOpacity>
-                          
+
                           {isSelected && (
                             <View style={styles.quantityControl}>
-                              <IconButton 
-                                icon="minus" 
-                                size={16} 
+                              <IconButton
+                                icon="minus"
+                                size={16}
                                 style={styles.qtyBtn}
                                 onPress={() => {
                                   if (selectedParts[part.id] > 1) {
@@ -409,9 +405,9 @@ export default function AddServiceScreen() {
                                 }}
                               />
                               <Text style={styles.qtyText}>{selectedParts[part.id]}</Text>
-                              <IconButton 
-                                icon="plus" 
-                                size={16} 
+                              <IconButton
+                                icon="plus"
+                                size={16}
                                 style={styles.qtyBtn}
                                 onPress={() => setSelectedParts({ ...selectedParts, [part.id]: selectedParts[part.id] + 1 })}
                               />
@@ -535,12 +531,16 @@ export default function AddServiceScreen() {
             </View>
           </Surface>
 
-          <TouchableOpacity 
-            style={[styles.saveBtn, ((!foundCustomer && !isNewCustomer) || totalCost === 0) && { opacity: 0.5 }]} 
+          <TouchableOpacity
+            style={[styles.saveBtn, ((!foundCustomer && !isNewCustomer) || totalCost === 0) && { opacity: 0.5 }]}
             onPress={handleSave}
-            disabled={(!foundCustomer && !isNewCustomer) || totalCost === 0}
+            disabled={(!foundCustomer && !isNewCustomer) || totalCost === 0 || addServiceMutation.isPending || addCustomerMutation.isPending}
           >
-            <Text style={styles.saveBtnText}>Confirm Service Record</Text>
+            {addServiceMutation.isPending || addCustomerMutation.isPending ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <Text style={styles.saveBtnText}>Confirm Service Record</Text>
+            )}
           </TouchableOpacity>
 
           <View style={{ height: 40 }} />
@@ -645,22 +645,6 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     color: '#64748B',
     fontSize: 14
-  },
-  notFoundLink: {
-    marginTop: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#FFF1F2',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FECDD3'
-  },
-  notFoundText: {
-    marginLeft: 8,
-    color: '#EF4444',
-    fontWeight: '600',
-    fontSize: 13
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -800,39 +784,34 @@ const styles = StyleSheet.create({
   },
   partName: {
     fontSize: 14,
-    color: '#1E293B',
-    fontWeight: '500'
+    color: '#0F172A',
+    fontWeight: '600'
   },
   partPrice: {
     fontSize: 12,
-    color: colors.primary,
-    fontWeight: '700'
+    color: '#64748B'
   },
   quantityControl: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F1F5F9',
-    borderRadius: 20,
+    borderRadius: 10,
     paddingHorizontal: 4
   },
   qtyBtn: {
-    margin: 0,
-    width: 28,
-    height: 28
+    margin: 0
   },
   qtyText: {
-    fontSize: 13,
     fontWeight: '800',
+    fontSize: 14,
     color: '#0F172A',
-    width: 20,
-    textAlign: 'center'
+    marginHorizontal: 4
   },
   subSectionTitle: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
     color: '#64748B',
     marginBottom: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 1
+    textTransform: 'uppercase'
   }
 });

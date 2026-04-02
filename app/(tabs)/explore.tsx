@@ -1,37 +1,51 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, StatusBar } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, StatusBar, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Surface } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { useGarage } from '../../src/hooks/useGarage';
 import { formatCurrency } from '../../src/utils/helpers';
+import { useCustomers } from '../../src/hooks/useQueries';
+import { colors } from '../../src/theme/colors';
 
 export default function ServiceHistoryScreen() {
   const router = useRouter();
-  const { customers } = useGarage();
   const [searchQuery, setSearchQuery] = useState('');
+  const { data: customers, isLoading } = useCustomers();
 
   // Flatten and enhance services with customer/vehicle info
-  const allServices = customers.flatMap(customer =>
-    customer.history.map(service => {
-      // Find which vehicle this service belongs to (based on lastService date or we could improve the model)
-      // For now, we'll try to match the date or just use the first vehicle if not specified
-      const vehicle = customer.vehicles[0];
+  const allServices = useMemo(() => {
+    if (!customers) return [];
+    
+    return customers.flatMap((customer: any) =>
+      customer.history.map((service: any) => {
+        // Find which vehicle this service belongs to (based on lastService date or we could improve the model)
+        const vehicle = customer.vehicles?.[0];
 
-      return {
-        ...service,
-        customerName: customer.name,
-        vehicleModel: vehicle?.model,
-        vehicleNumber: vehicle?.number
-      };
-    })
-  ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return {
+          ...service,
+          customerName: customer.name,
+          vehicleModel: vehicle?.model,
+          vehicleNumber: vehicle?.vehicleNumber || vehicle?.number
+        };
+      })
+    ).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [customers]);
 
-  const filteredServices = allServices.filter(s =>
-    s.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.vehicleModel?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredServices = useMemo(() => {
+    return allServices.filter((s: any) =>
+      s.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.vehicleModel?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [allServices, searchQuery]);
+
+  if (isLoading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.mainContainer}>
@@ -60,7 +74,7 @@ export default function ServiceHistoryScreen() {
         </Surface>
 
         {/* Services List */}
-        {filteredServices.map((service, index) => (
+        {filteredServices.map((service: any, index: number) => (
           <View key={service.id} style={styles.timelineContainer}>
             {/* Timeline Line & Dot */}
             <View style={styles.timelineLeft}>
@@ -149,6 +163,11 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     backgroundColor: '#1A3A3A',

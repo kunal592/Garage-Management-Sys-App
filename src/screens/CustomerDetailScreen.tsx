@@ -6,28 +6,15 @@ import VehicleCard from '../components/VehicleCard';
 import ServiceItem from '../components/ServiceItem';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { useGarage } from '../hooks/useGarage';
-import { Customer } from '../data/mockData';
+import { useCustomerDetail } from '../hooks/useQueries';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CustomerDetail'>;
 
 const CustomerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { customerId } = route.params;
-  const { getCustomerById } = useGarage();
-  const [customer, setCustomer] = useState<Customer | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: customer, isLoading } = useCustomerDetail(customerId);
 
-  useEffect(() => {
-    const loadCustomer = async () => {
-      setLoading(true);
-      const data = await getCustomerById(customerId);
-      setCustomer(data);
-      setLoading(false);
-    };
-    loadCustomer();
-  }, [customerId]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -113,7 +100,7 @@ const CustomerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             style={{ margin: 0 }}
           />
         </View>
-        {customer.vehicles?.map(vehicle => (
+        {customer.vehicles?.map((vehicle: any) => (
           <VehicleCard key={vehicle.id} vehicle={vehicle} />
         ))}
 
@@ -130,7 +117,7 @@ const CustomerDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </Button>
         </View>
         <Surface style={styles.historyCard}>
-          {customer.history?.map((service) => (
+          {customer.history?.map((service: any) => (
             <ServiceItem
               key={service.id}
               service={service}
