@@ -35,7 +35,6 @@ const AppNavigator = () => {
           fontWeight: '800',
           fontSize: 18,
         },
-        headerBackTitleVisible: false,
         contentStyle: {
           backgroundColor: colors.background,
         },

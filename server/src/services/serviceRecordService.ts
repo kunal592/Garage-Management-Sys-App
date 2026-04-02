@@ -20,7 +20,8 @@ export const createService = async (data: any) => {
     serviceCost, 
     partsCost, 
     totalCost, 
-    nextServiceDate 
+    nextServiceDate,
+    status,
   } = data;
 
   return prisma.$transaction(async (tx: any) => {
@@ -33,6 +34,7 @@ export const createService = async (data: any) => {
         serviceCost,
         partsCost,
         totalCost,
+        status: status || 'Pending',
         nextServiceDate: nextServiceDate ? new Date(nextServiceDate) : null,
       }
     });
@@ -65,18 +67,41 @@ export const createService = async (data: any) => {
 };
 
 export const getServiceById = async (id: string) => {
-  return prisma.service.findUnique({
+  const s = await prisma.service.findUnique({
     where: { id },
     include: {
       customer: true,
       vehicle: true,
       parts: {
-        include: {
-          part: true
-        }
+        include: { part: true }
       }
     }
   });
+
+  if (!s) return null;
+
+  return {
+    id: s.id,
+    date: s.createdAt.toLocaleDateString(),
+    nextServiceDate: s.nextServiceDate ? s.nextServiceDate.toISOString() : null,
+    status: s.status,
+    type: Array.isArray(s.serviceItems) ? (s.serviceItems as string[]).join(', ') : 'Service',
+    serviceItems: s.serviceItems,
+    serviceCost: s.serviceCost,
+    partsCost: s.partsCost,
+    totalCost: s.totalCost,
+    customerName: s.customer.name,
+    customerPhone: s.customer.phone,
+    vehicleModel: s.vehicle.model,
+    vehicleNumber: s.vehicle.vehicleNumber,
+    selectedParts: s.parts.map((sp: any) => ({
+      id: sp.partId,
+      name: sp.part.name,
+      price: sp.priceAtTime,
+      quantity: sp.quantity,
+    })),
+    customParts: [],
+  };
 };
 
 export const updateServiceStatus = async (id: string, status: string) => {
@@ -87,19 +112,29 @@ export const updateServiceStatus = async (id: string, status: string) => {
 };
 
 export const getUpcomingServices = async () => {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  const now = new Date();
+  const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-  return prisma.service.findMany({
+  const services = await prisma.service.findMany({
     where: {
       nextServiceDate: {
-        lte: tomorrow,
-        gte: new Date()
+        gte: now,
+        lte: in24Hours,
       }
     },
     include: {
       customer: true,
       vehicle: true
-    }
+    },
+    orderBy: { nextServiceDate: 'asc' }
   });
+
+  return services.map((s: any) => ({
+    serviceId: s.id,
+    customerName: s.customer.name,
+    phone: s.customer.phone,
+    vehicleModel: s.vehicle.model,
+    vehicleNumber: s.vehicle.vehicleNumber,
+    nextServiceDate: s.nextServiceDate,
+  }));
 };

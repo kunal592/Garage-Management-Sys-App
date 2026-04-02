@@ -1,43 +1,21 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Share, ActivityIndicator } from 'react-native';
 import { Text, Surface, Divider } from 'react-native-paper';
 import { Stack } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useCustomers } from "../../src/hooks/useQueries";
+import { useUpcomingServices } from "../../src/hooks/useQueries";
 import { colors } from "../../src/theme/colors";
 
 export default function AlertsScreen() {
-  const { data: customers = [], isLoading } = useCustomers();
-
-  const upcomingServices = useMemo(() => {
-    const reminders: any[] = [];
-    const now = new Date();
-    const tomorrow = new Date();
-    tomorrow.setHours(now.getHours() + 24);
-
-    customers.forEach((customer: any) => {
-      customer.vehicles?.forEach((vehicle: any) => {
-        if (vehicle.nextServiceDate) {
-          const serviceDate = new Date(vehicle.nextServiceDate);
-          if (serviceDate >= now && serviceDate <= tomorrow) {
-            reminders.push({
-              id: vehicle.id,
-              customerName: customer.name,
-              phone: customer.phone,
-              vehicleModel: vehicle.model,
-              vehicleNumber: vehicle.vehicleNumber || vehicle.number,
-              serviceDate: vehicle.nextServiceDate
-            });
-          }
-        }
-      });
-    });
-    return reminders;
-  }, [customers]);
+  const { data: upcomingServices = [], isLoading } = useUpcomingServices();
 
   const handleSendReminder = async (reminder: any) => {
+    const serviceDate = reminder.nextServiceDate
+      ? new Date(reminder.nextServiceDate).toLocaleDateString()
+      : 'soon';
+
     const message = `Hello ${reminder.customerName},
-Your vehicle service for ${reminder.vehicleModel} (${reminder.vehicleNumber}) is scheduled for tomorrow.
+Your vehicle service for ${reminder.vehicleModel} (${reminder.vehicleNumber}) is scheduled for ${serviceDate}.
 Please visit our garage for maintenance.
 Thank you.`;
     
@@ -75,8 +53,8 @@ Thank you.`;
           </View>
 
           {upcomingServices.length > 0 ? (
-            upcomingServices.map((reminder, idx) => (
-              <Surface key={idx} style={styles.alertCard} elevation={2}>
+            upcomingServices.map((reminder: any, idx: number) => (
+              <Surface key={reminder.serviceId || idx} style={styles.alertCard} elevation={2}>
                 <View style={styles.cardHeader}>
                   <View style={styles.vehicleInfo}>
                      <View style={styles.iconCircle}>
@@ -88,7 +66,7 @@ Thank you.`;
                      </View>
                   </View>
                   <View style={styles.tomorrowBadge}>
-                    <Text style={styles.tomorrowText}>Tomorrow</Text>
+                    <Text style={styles.tomorrowText}>Due Soon</Text>
                   </View>
                 </View>
 
@@ -105,7 +83,9 @@ Thank you.`;
                   </View>
                   <View style={[styles.infoRow, { marginTop: 4 }]}>
                     <MaterialCommunityIcons name="calendar-clock" size={18} color="#64748B" />
-                    <Text style={styles.infoLabel}>Due: {new Date(reminder.serviceDate).toLocaleDateString()}</Text>
+                    <Text style={styles.infoLabel}>
+                      Due: {reminder.nextServiceDate ? new Date(reminder.nextServiceDate).toLocaleDateString() : '—'}
+                    </Text>
                   </View>
                 </View>
 
@@ -122,7 +102,7 @@ Thank you.`;
             <View style={styles.emptyState}>
                <MaterialCommunityIcons name="bell-off-outline" size={80} color="#E2E8F0" />
                <Text style={styles.emptyTitle}>All caught up!</Text>
-               <Text style={styles.emptyText}>No services scheduled for tomorrow.</Text>
+               <Text style={styles.emptyText}>No services scheduled for the next 24 hours.</Text>
             </View>
           )}
           <View style={{ height: 110 }} />
@@ -259,5 +239,6 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 8,
     fontWeight: '500',
+    textAlign: 'center',
   },
 });

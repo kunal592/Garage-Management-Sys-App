@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Card, Text, Icon } from 'react-native-paper';
 import { colors } from '../theme/colors';
-import { Vehicle } from '../data/mockData';
+import { Vehicle } from '../data/types';
 
 interface VehicleCardProps {
   vehicle: Vehicle;
@@ -18,7 +18,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
           </View>
           <View style={styles.headerText}>
             <Text variant="titleMedium" style={styles.model}>{vehicle.model}</Text>
-            <Text variant="bodySmall" style={styles.plateNumber}>{vehicle.number}</Text>
+            <Text variant="bodySmall" style={styles.plateNumber}>{vehicle.vehicleNumber}</Text>
           </View>
         </View>
         <View style={styles.divider} />
@@ -26,7 +26,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
           <View style={styles.infoRow}>
             <Icon source="calendar-clock" size={16} color={colors.textSecondary} />
             <Text variant="bodySmall" style={styles.lastServiceText}>
-              Last Service: <Text style={styles.dateText}>{vehicle.lastService}</Text>
+              Last Service: <Text style={styles.dateText}>{vehicle.lastServiceDate}</Text>
             </Text>
           </View>
         </View>

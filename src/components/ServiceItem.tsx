@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { colors } from '../theme/colors';
 import { formatCurrency, getStatusColor } from '../utils/helpers';
-import { ServiceHistory } from '../data/mockData';
+import { ServiceHistory } from '../data/types';
 
 interface ServiceItemProps {
   service: ServiceHistory;
@@ -16,7 +16,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({ service }) => {
     <View style={styles.container}>
       <View style={[styles.iconContainer, { backgroundColor: `${statusColor}10` }]}>
         <Icon
-          source={service.type.toLowerCase().includes('oil') ? 'oil' : 'wrench'}
+          source={(service.type || '').toLowerCase().includes('oil') ? 'oil' : 'wrench'}
           size={20}
           color={statusColor}
         />
@@ -26,7 +26,7 @@ const ServiceItem: React.FC<ServiceItemProps> = ({ service }) => {
         <Text variant="bodySmall" style={styles.date}>{service.date}</Text>
       </View>
       <View style={styles.rightSection}>
-        <Text variant="titleMedium" style={styles.cost}>{formatCurrency(service.cost)}</Text>
+        <Text variant="titleMedium" style={styles.cost}>{formatCurrency(service.totalCost || service.cost || 0)}</Text>
         <View style={[styles.statusBadge, { backgroundColor: `${statusColor}15` }]}>
           <Text style={[styles.statusText, { color: statusColor }]}>
             {service.status}

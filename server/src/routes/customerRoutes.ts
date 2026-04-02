@@ -5,7 +5,7 @@ const router = Router();
 
 router.get('/', customerController.getCustomers);
 router.post('/', customerController.createCustomer);
-router.get('/:id', customerController.getCustomerById);
 router.get('/search-by-phone/:phone', customerController.getCustomerByPhone);
+router.get('/:id', customerController.getCustomerById);
 
 export default router;

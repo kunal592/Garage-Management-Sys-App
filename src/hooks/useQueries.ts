@@ -58,6 +58,20 @@ export const useServiceDetail = (id: string) => {
   });
 };
 
+export const useServices = (status?: string) => {
+  return useQuery<any[]>({
+    queryKey: ['services', status],
+    queryFn: () => apiService.services.getAll(status),
+  });
+};
+
+export const useUpcomingServices = () => {
+  return useQuery<any[]>({
+    queryKey: ['services', 'upcoming'],
+    queryFn: () => apiService.services.getUpcoming(),
+  });
+};
+
 // --- Part Queries ---
 
 export const useParts = () => {
@@ -75,6 +89,17 @@ export const useAddCustomer = () => {
     mutationFn: (data: any) => apiService.customers.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+    },
+  });
+};
+
+export const useAddVehicle = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ customerId, data }: { customerId: string, data: any }) => apiService.vehicles.add(customerId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customer'] });
     },
   });
 };

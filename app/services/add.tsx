@@ -3,7 +3,7 @@ import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Avatar, Divider, IconButton, Surface, Text, TextInput } from 'react-native-paper';
-import { useAddCustomer, useAddService, useCustomers, useParts } from '../../src/hooks/useQueries';
+import { useAddCustomer, useAddService, useCustomers, useParts, useAddVehicle } from '../../src/hooks/useQueries';
 import { colors } from '../../src/theme/colors';
 
 interface ListItem {
@@ -22,6 +22,8 @@ export default function AddServiceScreen() {
   const addServiceMutation = useAddService();
 
   // Search & Found State
+  const addVehicleMutation = useAddVehicle();
+
   const [phoneNumber, setPhoneNumber] = useState('');
   const [foundCustomer, setFoundCustomer] = useState<any>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
@@ -30,6 +32,7 @@ export default function AddServiceScreen() {
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newVehicleModel, setNewVehicleModel] = useState('');
   const [newVehicleNumber, setNewVehicleNumber] = useState('');
+  const [isAddingNewVehicle, setIsAddingNewVehicle] = useState(false);
   const [isNewCustomer, setIsNewCustomer] = useState(false);
 
   // Form State
@@ -107,9 +110,34 @@ export default function AddServiceScreen() {
     let finalVehicleId = selectedVehicleId;
 
     // Validation for existing customer
-    if (!isNewCustomer && (!foundCustomer || !selectedVehicleId)) {
-      Alert.alert('Selection Required', 'Please find a customer by phone number and select a vehicle.');
+    if (!isNewCustomer && !foundCustomer) {
+      Alert.alert('Selection Required', 'Please find a customer by phone number.');
       return;
+    }
+
+    if (!isNewCustomer && foundCustomer && !isAddingNewVehicle && !selectedVehicleId) {
+      Alert.alert('Selection Required', 'Please select a vehicle or add a new one.');
+      return;
+    }
+
+    if (!isNewCustomer && foundCustomer && isAddingNewVehicle) {
+      if (!newVehicleModel || !newVehicleNumber) {
+        Alert.alert('Info Required', 'Please fill in Vehicle Model and Vehicle Number.');
+        return;
+      }
+      try {
+        const newVehicle = await addVehicleMutation.mutateAsync({
+          customerId: foundCustomer.id,
+          data: {
+            model: newVehicleModel.trim(),
+            vehicleNumber: newVehicleNumber.toUpperCase().trim()
+          }
+        });
+        finalVehicleId = newVehicle.id;
+      } catch (error) {
+        Alert.alert('Error', 'Failed to add new vehicle to existing customer.');
+        return;
+      }
     }
 
     // Validation/Creation for new customer
@@ -157,6 +185,15 @@ export default function AddServiceScreen() {
 
     const summary = [...serviceNames, ...partsNames].join(', ') || 'General Service';
 
+    const selectedPartsArray = Object.keys(selectedParts).map(partId => {
+      const part = parts.find((p: any) => p.id === partId);
+      return {
+        id: partId,
+        quantity: selectedParts[partId],
+        price: part?.price ?? 0,
+      };
+    });
+
     const newServiceData = {
       customerId: finalCustomerId,
       vehicleId: finalVehicleId,
@@ -166,8 +203,7 @@ export default function AddServiceScreen() {
       partsCost: totalPartsCost,
       totalCost: totalCost,
       nextServiceDate: nextServiceDate ? new Date(nextServiceDate).toISOString() : null,
-      notes: notes
-      // Note: You might want to pass structured parts too if your backend supports it
+      selectedParts: selectedPartsArray,
     };
 
     try {
@@ -237,18 +273,60 @@ export default function AddServiceScreen() {
                 {foundCustomer.vehicles?.map((v: any) => (
                   <TouchableOpacity
                     key={v.id}
-                    style={[styles.vehicleBtn, selectedVehicleId === v.id && styles.vehicleBtnActive]}
-                    onPress={() => setSelectedVehicleId(v.id)}
+                    style={[styles.vehicleBtn, selectedVehicleId === v.id && !isAddingNewVehicle && styles.vehicleBtnActive]}
+                    onPress={() => {
+                      setSelectedVehicleId(v.id);
+                      setIsAddingNewVehicle(false);
+                    }}
                   >
-                    <MaterialCommunityIcons name="car" size={20} color={selectedVehicleId === v.id ? '#2DD4BF' : colors.textSecondary} />
-                    <Text style={[styles.vehicleBtnText, selectedVehicleId === v.id && { color: '#2DD4BF', fontWeight: '700' }]}>
+                    <MaterialCommunityIcons name="car" size={20} color={selectedVehicleId === v.id && !isAddingNewVehicle ? '#2DD4BF' : colors.textSecondary} />
+                    <Text style={[styles.vehicleBtnText, selectedVehicleId === v.id && !isAddingNewVehicle && { color: '#2DD4BF', fontWeight: '700' }]}>
                       {v.model} ({v.vehicleNumber || v.number})
                     </Text>
-                    {selectedVehicleId === v.id && (
+                    {selectedVehicleId === v.id && !isAddingNewVehicle && (
                       <MaterialCommunityIcons name="check-circle" size={18} color="#2DD4BF" style={{ marginLeft: 'auto' }} />
                     )}
                   </TouchableOpacity>
                 ))}
+
+                <TouchableOpacity
+                  style={[styles.vehicleBtn, isAddingNewVehicle && styles.vehicleBtnActive]}
+                  onPress={() => {
+                    setIsAddingNewVehicle(true);
+                    setSelectedVehicleId('');
+                  }}
+                >
+                  <MaterialCommunityIcons name="plus-circle-outline" size={20} color={isAddingNewVehicle ? '#2DD4BF' : colors.textSecondary} />
+                  <Text style={[styles.vehicleBtnText, isAddingNewVehicle && { color: '#2DD4BF', fontWeight: '700' }]}>
+                    Add New Vehicle
+                  </Text>
+                  {isAddingNewVehicle && (
+                    <MaterialCommunityIcons name="check-circle" size={18} color="#2DD4BF" style={{ marginLeft: 'auto' }} />
+                  )}
+                </TouchableOpacity>
+
+                {isAddingNewVehicle && (
+                  <View style={{ flexDirection: 'row', marginTop: 10 }}>
+                    <TextInput
+                      mode="outlined"
+                      label="Vehicle Model"
+                      placeholder="e.g. Swift"
+                      value={newVehicleModel}
+                      onChangeText={setNewVehicleModel}
+                      style={[styles.newInput, { flex: 1, marginRight: 8 }]}
+                      outlineStyle={{ borderRadius: 10 }}
+                    />
+                    <TextInput
+                      mode="outlined"
+                      label="Reg Number"
+                      placeholder="DL 01..."
+                      value={newVehicleNumber}
+                      onChangeText={setNewVehicleNumber}
+                      style={[styles.newInput, { flex: 1 }]}
+                      outlineStyle={{ borderRadius: 10 }}
+                    />
+                  </View>
+                )}
               </View>
             )}
 

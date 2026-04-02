@@ -4,38 +4,38 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Surface } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { formatCurrency } from '../../src/utils/helpers';
-import { useCustomers } from '../../src/hooks/useQueries';
+import { useServices } from '../../src/hooks/useQueries';
 import { colors } from '../../src/theme/colors';
 
 export default function ServiceHistoryScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: customers, isLoading } = useCustomers();
+  const { data: rawServices = [], isLoading } = useServices();
 
-  // Flatten and enhance services with customer/vehicle info
+  // Map raw backend shape to display shape
   const allServices = useMemo(() => {
-    if (!customers) return [];
-    
-    return customers.flatMap((customer: any) =>
-      customer.history.map((service: any) => {
-        // Find which vehicle this service belongs to (based on lastService date or we could improve the model)
-        const vehicle = customer.vehicles?.[0];
-
-        return {
-          ...service,
-          customerName: customer.name,
-          vehicleModel: vehicle?.model,
-          vehicleNumber: vehicle?.vehicleNumber || vehicle?.number
-        };
-      })
-    ).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [customers]);
+    return rawServices.map((s: any) => ({
+      id: s.id,
+      date: s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '—',
+      customerName: s.customer?.name || '—',
+      vehicleModel: s.vehicle?.model || '—',
+      vehicleNumber: s.vehicle?.vehicleNumber || '—',
+      type: Array.isArray(s.serviceItems) ? s.serviceItems.join(', ') : 'Service',
+      cost: s.totalCost ?? 0,
+      parts: s.partsCost ?? 0,
+      labour: s.serviceCost ?? 0,
+      status: s.status || 'Pending',
+      notes: s.notes || null,
+    }));
+  }, [rawServices]);
 
   const filteredServices = useMemo(() => {
+    if (!searchQuery) return allServices;
     return allServices.filter((s: any) =>
       s.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.vehicleModel?.toLowerCase().includes(searchQuery.toLowerCase())
+      s.vehicleModel.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.vehicleNumber.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [allServices, searchQuery]);
 

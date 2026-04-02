@@ -36,7 +36,7 @@ export default function ServiceDetails() {
 Customer: ${service.customerName}
 Date: ${service.date}
 Service Type: ${service.type}
-Total Amount: ${formatCurrency(service.cost)}
+Total Amount: ${formatCurrency(service.cost || service.totalCost || 0)}
 Status: ${service.status}`;
 
     try {
@@ -128,16 +128,16 @@ Status: ${service.status}`;
           <View style={styles.breakdown}>
              <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>Parts & Consumables</Text>
-                <Text style={styles.breakdownValue}>{formatCurrency(service.partsCost || service.parts || 0)}</Text>
+                <Text style={styles.breakdownValue}>{formatCurrency(service.partsCost || 0)}</Text>
              </View>
              <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>Labour Charges</Text>
-                <Text style={styles.breakdownValue}>{formatCurrency(service.serviceCost || service.labour || 0)}</Text>
+                <Text style={styles.breakdownValue}>{formatCurrency(service.serviceCost || 0)}</Text>
              </View>
              <Divider style={{ marginVertical: 12 }} />
              <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>GRAND TOTAL</Text>
-                <Text style={styles.totalValue}>{formatCurrency(service.totalCost || service.cost)}</Text>
+                <Text style={styles.totalValue}>{formatCurrency(service.totalCost || service.cost || 0)}</Text>
              </View>
           </View>
 

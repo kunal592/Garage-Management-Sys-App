@@ -75,6 +75,7 @@ export const getAnalytics = async () => {
   const distributionMap: Record<string, number> = {};
   
   allServices.forEach((s: any) => {
+    if (!Array.isArray(s.serviceItems)) return;
     const items = s.serviceItems as string[];
     items.forEach(item => {
       distributionMap[item] = (distributionMap[item] || 0) + 1;

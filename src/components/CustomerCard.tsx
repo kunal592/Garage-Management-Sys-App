@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Card, Text, Avatar, IconButton } from 'react-native-paper';
 import { colors } from '../theme/colors';
-import { Customer } from '../data/mockData';
+import { Customer } from '../data/types';
 
 interface CustomerCardProps {
   customer: Customer;

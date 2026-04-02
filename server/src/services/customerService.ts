@@ -61,6 +61,7 @@ export const createCustomer = async (data: { name: string; phone: string; addres
 
 export const searchCustomerByPhone = async (phone: string) => {
   return prisma.customer.findUnique({
-    where: { phone }
+    where: { phone },
+    include: { vehicles: true }
   });
 };
