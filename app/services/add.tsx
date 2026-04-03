@@ -39,7 +39,7 @@ export default function AddServiceScreen() {
   const [serviceItems, setServiceItems] = useState<ListItem[]>([{ id: 's1', name: '', price: '' }]);
   const [selectedParts, setSelectedParts] = useState<{ [key: string]: number }>({}); // partId -> quantity
   const [customParts, setCustomParts] = useState<ListItem[]>([]);
-  const [expandedCategory, setExpandedCategory] = useState<string | null>('Engine Parts');
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'Performed' | 'Pending'>('Performed');
   const [nextServiceDate, setNextServiceDate] = useState('');
@@ -147,10 +147,16 @@ export default function AddServiceScreen() {
         return;
       }
 
+      const cleanPhone = phoneNumber.replace(/\D/g, '');
+      if (cleanPhone.length < 10) {
+        Alert.alert('Invalid Phone', 'Please enter a valid 10-digit phone number to register the new customer.');
+        return;
+      }
+
       try {
         const newCustomer = await addCustomerMutation.mutateAsync({
-          name: newCustomerName,
-          phone: phoneNumber.replace(/\D/g, ''),
+          name: newCustomerName.trim(),
+          phone: cleanPhone,
           address: '',
           vehicles: [
             {
@@ -162,8 +168,13 @@ export default function AddServiceScreen() {
 
         finalCustomerId = newCustomer.id;
         finalVehicleId = newCustomer.vehicles?.[0]?.id;
-      } catch (error) {
-        Alert.alert('Error', 'Failed to create customer');
+      } catch (error: any) {
+        const msg = error?.message || '';
+        if (msg.includes('already exists')) {
+          Alert.alert('Duplicate Phone', 'A customer with this phone number already exists. Use the search to find them instead.');
+        } else {
+          Alert.alert('Error', `Failed to create customer: ${msg || 'Please check your connection and try again.'}`);
+        }
         return;
       }
     }
@@ -183,7 +194,7 @@ export default function AddServiceScreen() {
       ...customParts.map(i => i.name)
     ].filter(Boolean);
 
-    const summary = [...serviceNames, ...partsNames].join(', ') || 'General Service';
+    const summaryNames = [...serviceNames, ...partsNames].filter(Boolean);
 
     const selectedPartsArray = Object.keys(selectedParts).map(partId => {
       const part = parts.find((p: any) => p.id === partId);
@@ -198,7 +209,7 @@ export default function AddServiceScreen() {
       customerId: finalCustomerId,
       vehicleId: finalVehicleId,
       status: status,
-      serviceItems: serviceNames as string[],
+      serviceItems: summaryNames.length > 0 ? summaryNames : ['Parts Sale'],
       serviceCost: totalLabourCost,
       partsCost: totalPartsCost,
       totalCost: totalCost,
@@ -431,17 +442,17 @@ export default function AddServiceScreen() {
               <View key={category} style={styles.categoryContainer}>
                 <TouchableOpacity
                   style={styles.categoryHeader}
-                  onPress={() => setExpandedCategory(expandedCategory === category ? null : category)}
+                  onPress={() => setCollapsedCategories({ ...collapsedCategories, [category]: !collapsedCategories[category] })}
                 >
                   <Text style={styles.categoryTitle}>{category}</Text>
                   <MaterialCommunityIcons
-                    name={expandedCategory === category ? "chevron-up" : "chevron-down"}
+                    name={collapsedCategories[category] ? "chevron-down" : "chevron-up"}
                     size={24}
                     color={colors.textSecondary}
                   />
                 </TouchableOpacity>
 
-                {expandedCategory === category && (
+                {!collapsedCategories[category] && (
                   <View style={styles.categoryContent}>
                     {partsByCategory[category].map(part => {
                       const isSelected = !!selectedParts[part.id];

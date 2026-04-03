@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Share, ActivityIndicator } from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { Text, Surface, Avatar, Divider, Button } from 'react-native-paper';
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -32,17 +34,98 @@ export default function ServiceDetails() {
   }
 
   const handleShare = async () => {
-    const message = `Service Record for ${service.vehicleModel}
-Customer: ${service.customerName}
-Date: ${service.date}
-Service Type: ${service.type}
-Total Amount: ${formatCurrency(service.cost || service.totalCost || 0)}
-Status: ${service.status}`;
+    const message = `Service Record for ${service.vehicleModel}\nCustomer: ${service.customerName}\nDate: ${service.date}\nService Type: ${service.type}\nTotal Amount: ${formatCurrency(service.cost || service.totalCost || 0)}\nStatus: ${service.status}`;
+    try { await Share.share({ message }); } catch (error) { console.log(error); }
+  };
+
+  const handleDownloadInvoice = async () => {
+    const html = `
+      <html>
+        <head>
+          <style>
+            body { font-family: 'Helvetica Neue', 'Helvetica', Arial, sans-serif; padding: 40px; color: #333; }
+            .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #2DD4BF; padding-bottom: 20px; }
+            .logo { font-size: 28px; font-weight: bold; color: #145A4A; }
+            .details { display: flex; justify-content: space-between; margin-bottom: 40px; }
+            .details-col { width: 45%; }
+            .title { font-size: 14px; color: #64748B; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+            .value { font-size: 16px; margin-bottom: 15px; font-weight: bold; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { text-align: left; padding: 12px; border-bottom: 2px solid #E2E8F0; color: #64748B; text-transform: uppercase; font-size: 12px; }
+            td { padding: 12px; border-bottom: 1px solid #E2E8F0; font-size: 14px; }
+            .right { text-align: right; }
+            .total-row td { font-weight: bold; font-size: 16px; border-bottom: none; }
+            .grand-total { font-size: 20px; color: #0D9488; }
+            .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #94A3B8; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">GarageMS Invoice</div>
+            <div>Automotive Service & Repair</div>
+          </div>
+          
+          <div class="details">
+            <div class="details-col">
+              <div class="title">Billed To:</div>
+              <div class="value">${service.customerName}<br/>${service.customerPhone}</div>
+              <div class="title">Vehicle:</div>
+              <div class="value">${service.vehicleModel}<br/>${service.vehicleNumber || ''}</div>
+            </div>
+            <div class="details-col" style="text-align: right;">
+              <div class="title">Invoice Date:</div>
+              <div class="value">${service.date}</div>
+              <div class="title">Status:</div>
+              <div class="value">${service.status || 'Performed'}</div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Service Summary</th>
+                <th class="right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Labor / Tasks</strong><br/><span style="color: #64748B; font-size: 12px;">${service.type}</span></td>
+                <td class="right">${formatCurrency(service.serviceCost || 0)}</td>
+              </tr>
+              ${[...(service.selectedParts || []), ...(service.customParts || [])].map((part: any) => `
+                <tr>
+                  <td>${part.name} (x${part.quantity || 1})</td>
+                  <td class="right">${formatCurrency(part.price * (part.quantity || 1))}</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td class="right" style="padding-top: 30px;">Parts Total:</td>
+                <td class="right" style="padding-top: 30px;">${formatCurrency(service.partsCost || 0)}</td>
+              </tr>
+              <tr class="total-row">
+                <td class="right">Labor Total:</td>
+                <td class="right">${formatCurrency(service.serviceCost || 0)}</td>
+              </tr>
+              <tr class="total-row">
+                <td class="right grand-total">GRAND TOTAL:</td>
+                <td class="right grand-total">${formatCurrency(service.totalCost || service.cost || 0)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="footer">
+            Thank you for your business!<br/>
+            ${service.nextServiceDate ? `Next Service Reminder: ${new Date(service.nextServiceDate).toLocaleDateString()}` : ''}
+          </div>
+        </body>
+      </html>
+    `;
 
     try {
-      await Share.share({ message });
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf', dialogTitle: 'Download Invoice' });
     } catch (error) {
-      console.log(error);
+      console.error(error);
     }
   };
 
@@ -159,6 +242,16 @@ Status: ${service.status}`;
              </Surface>
           )}
         </Surface>
+
+        <Button 
+          mode="contained" 
+          icon="download"
+          onPress={handleDownloadInvoice} 
+          style={styles.downloadBtn}
+          buttonColor="#145A4A"
+        >
+          Download PDF Invoice
+        </Button>
 
         <Button 
           mode="outlined" 
@@ -353,6 +446,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     height: 52,
     justifyContent: 'center',
+  },
+  downloadBtn: {
+    borderRadius: 16,
+    height: 52,
+    justifyContent: 'center',
+    marginBottom: 10,
+    elevation: 2,
   },
   partItemRow: {
     flexDirection: 'row',

@@ -45,7 +45,6 @@ export const getRecentActivity = async () => {
 };
 
 export const getAnalytics = async () => {
-  // Simple analytics logic
   const now = new Date();
   const months = [];
   const revenueData = [];
@@ -57,7 +56,8 @@ export const getAnalytics = async () => {
     const startOfMonth = new Date(d.getFullYear(), d.getMonth(), 1);
     const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
 
-    const monthServices = await prisma.service.findMany({
+    const result = await prisma.service.aggregate({
+      _sum: { totalCost: true },
       where: {
         createdAt: {
           gte: startOfMonth,
@@ -66,12 +66,13 @@ export const getAnalytics = async () => {
       }
     });
 
-    const revenue = monthServices.reduce((acc: number, s: any) => acc + s.totalCost, 0);
-    revenueData.push(revenue);
+    revenueData.push(result._sum.totalCost || 0);
   }
 
   // Service distribution
-  const allServices = await prisma.service.findMany();
+  const allServices = await prisma.service.findMany({
+    select: { serviceItems: true }
+  });
   const distributionMap: Record<string, number> = {};
   
   allServices.forEach((s: any) => {
@@ -82,26 +83,41 @@ export const getAnalytics = async () => {
     });
   });
 
-  const serviceDistribution = Object.entries(distributionMap).map(([name, count]) => ({
-    name,
-    population: count,
-    color: '#000', // Placeholder, frontend handles colors
-    legendFontColor: '#7F7F7F',
-    legendFontSize: 15
-  })).slice(0, 5);
+  const serviceDistribution = Object.entries(distributionMap)
+    .sort((a, b) => b[1] - a[1]) // highest first
+    .map(([name, count]) => ({
+      name,
+      population: count,
+      color: '#000', // Frontend handles real colors
+      legendFontColor: '#7F7F7F',
+      legendFontSize: 15
+    })).slice(0, 5);
 
   // Top customers
-  const topCustomers = await prisma.customer.findMany({
-    include: {
-      services: true
-    }
+  const serviceSums = await prisma.service.groupBy({
+    by: ['customerId'],
+    _sum: { totalCost: true },
+    orderBy: {
+      _sum: { totalCost: 'desc' },
+    },
+    take: 5,
   });
 
-  const topCustomersFormatted = topCustomers.map((c: any) => ({
-    id: c.id,
-    name: c.name,
-    totalSpent: c.services.reduce((acc: number, s: any) => acc + s.totalCost, 0)
-  })).sort((a: any, b: any) => b.totalSpent - a.totalSpent).slice(0, 5);
+  const topCustomerIds = serviceSums.map(s => s.customerId);
+
+  const topCustomersData = await prisma.customer.findMany({
+    where: { id: { in: topCustomerIds } },
+    select: { id: true, name: true }
+  });
+
+  const topCustomersFormatted = serviceSums.map(s => {
+    const cust = topCustomersData.find(c => c.id === s.customerId);
+    return {
+      id: s.customerId,
+      name: cust?.name || 'Unknown',
+      totalSpent: s._sum.totalCost || 0
+    };
+  });
 
   return {
     monthlyRevenue: {

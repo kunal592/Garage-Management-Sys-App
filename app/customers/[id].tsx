@@ -121,7 +121,7 @@ export default function CustomerDetails() {
 
         <Button
           mode="contained"
-          onPress={() => router.push('/explore')}
+          onPress={() => router.push(`/explore?customerId=${customer.id}`)}
           style={styles.historyBtn}
           buttonColor="#2DD4BF"
         >

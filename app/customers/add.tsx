@@ -88,7 +88,12 @@ export default function AddCustomerScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
 
           {/* Card 1: Customer Details */}
           <Surface style={styles.card} elevation={2}>
@@ -229,7 +234,6 @@ export default function AddCustomerScreen() {
             )}
           </TouchableOpacity>
 
-          <View style={{ height: 50 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -243,7 +247,10 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  contentContainer: {
     padding: 20,
+    paddingBottom: 120,
   },
   card: {
     backgroundColor: '#FFFFFF',

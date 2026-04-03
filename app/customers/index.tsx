@@ -11,16 +11,33 @@ export default function Customers() {
   const router = useRouter();
   const { data: customers = [], isLoading } = useCustomers();
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortMode, setSortMode] = useState<"newest" | "az" | "za">("newest");
 
   const filteredCustomers = useMemo(() => {
-    return customers.filter(
+    let result = customers.filter(
       (customer: any) =>
         customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         customer.phone.includes(searchQuery) ||
         customer.vehicles?.some((v: any) => v.model.toLowerCase().includes(searchQuery.toLowerCase())) ||
         customer.vehicles?.some((v: any) => v.vehicleNumber?.toLowerCase().includes(searchQuery.toLowerCase()))
     );
-  }, [customers, searchQuery]);
+
+    if (sortMode === 'az') {
+      result = result.sort((a: any, b: any) => a.name.localeCompare(b.name));
+    } else if (sortMode === 'za') {
+      result = result.sort((a: any, b: any) => b.name.localeCompare(a.name));
+    } else if (sortMode === 'newest') {
+      result = result.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    }
+
+    return result;
+  }, [customers, searchQuery, sortMode]);
+
+  const toggleSort = () => {
+    if (sortMode === 'newest') setSortMode('az');
+    else if (sortMode === 'az') setSortMode('za');
+    else setSortMode('newest');
+  };
 
   return (
     <View style={styles.container}>
@@ -56,9 +73,11 @@ export default function Customers() {
         {/* Stats Row */}
         <View style={styles.statsRow}>
           <Text style={styles.statsText}>{filteredCustomers.length} Total Customers</Text>
-          <TouchableOpacity style={styles.filterBtn}>
-            <MaterialCommunityIcons name="filter-variant" size={20} color={colors.primary} />
-            <Text style={styles.filterText}>Filter</Text>
+          <TouchableOpacity style={styles.filterBtn} onPress={toggleSort}>
+            <MaterialCommunityIcons name={sortMode === 'newest' ? 'clock-outline' : 'sort-alphabetical-variant'} size={20} color={colors.primary} />
+            <Text style={styles.filterText}>
+              {sortMode === 'newest' ? 'Newest' : sortMode === 'az' ? 'A-Z' : 'Z-A'}
+            </Text>
           </TouchableOpacity>
         </View>
 

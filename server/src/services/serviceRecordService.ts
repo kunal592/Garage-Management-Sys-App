@@ -63,6 +63,9 @@ export const createService = async (data: any) => {
     });
 
     return service;
+  }, {
+    maxWait: 10000, // 10 seconds max wait for connection (good for serverless Postgres cold starts)
+    timeout: 30000, // 30 seconds max duration
   });
 };
 

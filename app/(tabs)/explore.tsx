@@ -2,13 +2,14 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, StatusBar, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Surface } from 'react-native-paper';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { formatCurrency } from '../../src/utils/helpers';
 import { useServices } from '../../src/hooks/useQueries';
 import { colors } from '../../src/theme/colors';
 
 export default function ServiceHistoryScreen() {
   const router = useRouter();
+  const { customerId } = useLocalSearchParams<{ customerId?: string }>();
   const [searchQuery, setSearchQuery] = useState('');
   const { data: rawServices = [], isLoading } = useServices();
 
@@ -16,6 +17,7 @@ export default function ServiceHistoryScreen() {
   const allServices = useMemo(() => {
     return rawServices.map((s: any) => ({
       id: s.id,
+      customerId: s.customerId,
       date: s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '—',
       customerName: s.customer?.name || '—',
       vehicleModel: s.vehicle?.model || '—',
@@ -30,14 +32,24 @@ export default function ServiceHistoryScreen() {
   }, [rawServices]);
 
   const filteredServices = useMemo(() => {
-    if (!searchQuery) return allServices;
-    return allServices.filter((s: any) =>
-      s.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.vehicleModel.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.vehicleNumber.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [allServices, searchQuery]);
+    let results = allServices;
+    
+    // 1. Hard filter by customer if navigated from profile
+    if (customerId) {
+      results = results.filter((s: any) => s.customerId === customerId);
+    }
+    
+    // 2. Text search filtering
+    if (searchQuery) {
+      results = results.filter((s: any) =>
+        s.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.vehicleModel.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.vehicleNumber.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    return results;
+  }, [allServices, searchQuery, customerId]);
 
   if (isLoading) {
     return (

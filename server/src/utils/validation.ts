@@ -15,7 +15,7 @@ export const customerSchema = z.object({
 export const serviceSchema = z.object({
   customerId: z.string().min(1, 'Customer ID is required'),
   vehicleId: z.string().min(1, 'Vehicle ID is required'),
-  serviceItems: z.array(z.string()).min(1, 'At least one service item is required'),
+  serviceItems: z.array(z.string()).optional(),
   serviceCost: z.number().min(0),
   partsCost: z.number().min(0),
   totalCost: z.number().min(0),
