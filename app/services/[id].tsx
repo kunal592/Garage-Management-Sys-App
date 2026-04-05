@@ -8,6 +8,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useServiceDetail } from "../../src/hooks/useQueries";
 import { colors } from "../../src/theme/colors";
 import { formatCurrency } from "../../src/utils/helpers";
+import { ServiceDetailSkeleton } from "../../src/components/SkeletonLoaders";
 
 export default function ServiceDetails() {
   const { id } = useLocalSearchParams();
@@ -17,11 +18,7 @@ export default function ServiceDetails() {
   const { data: service, isLoading } = useServiceDetail(id as string);
 
   if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <ServiceDetailSkeleton />;
   }
 
   if (!service) {

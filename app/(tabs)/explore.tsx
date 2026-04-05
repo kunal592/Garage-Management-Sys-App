@@ -6,6 +6,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { formatCurrency } from '../../src/utils/helpers';
 import { useServices } from '../../src/hooks/useQueries';
 import { colors } from '../../src/theme/colors';
+import { ServiceListSkeleton } from '../../src/components/SkeletonLoaders';
 
 export default function ServiceHistoryScreen() {
   const router = useRouter();
@@ -52,11 +53,7 @@ export default function ServiceHistoryScreen() {
   }, [allServices, searchQuery, customerId]);
 
   if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <ServiceListSkeleton />;
   }
 
   return (

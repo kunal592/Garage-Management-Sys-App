@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import CustomerCard from "../../components/CustomerCard";
 import { useCustomers } from "../../src/hooks/useQueries";
 import { colors } from "../../src/theme/colors";
+import { CustomerListSkeleton } from "../../src/components/SkeletonLoaders";
 
 export default function Customers() {
   const router = useRouter();
@@ -82,9 +83,7 @@ export default function Customers() {
         </View>
 
         {isLoading ? (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
+          <CustomerListSkeleton />
         ) : (
           <FlatList
             data={filteredCustomers}

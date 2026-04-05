@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../src/theme/colors";
 import { useCustomerDetail } from "../../src/hooks/useQueries";
+import { CustomerDetailSkeleton } from "../../src/components/SkeletonLoaders";
 
 export default function CustomerDetails() {
   const { id } = useLocalSearchParams();
@@ -14,11 +15,7 @@ export default function CustomerDetails() {
   const { data: customer, isLoading } = useCustomerDetail(id as string);
 
   if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <CustomerDetailSkeleton />;
   }
 
   if (!customer) {

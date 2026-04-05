@@ -5,6 +5,7 @@ import { LineChart, PieChart } from 'react-native-chart-kit';
 import { colors } from '../../src/theme/colors';
 import { formatCurrency } from '../../src/utils/helpers';
 import { useAnalytics } from '../../src/hooks/useQueries';
+import { DashboardSkeleton } from '../../src/components/SkeletonLoaders';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -12,11 +13,7 @@ export default function AnalyticsScreen() {
   const { data: analytics, isLoading } = useAnalytics();
 
   if (isLoading || !analytics) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <DashboardSkeleton />;
   }
 
   const chartConfig = {
