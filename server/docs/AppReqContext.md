@@ -249,6 +249,39 @@ Used for:
 
 ---
 
+POST /api/parts
+
+Body:
+* name
+* category
+* brand?
+* price
+
+Logic:
+Add a new part to the master catalog.
+
+---
+
+PATCH /api/parts/:id
+
+Body:
+* price?
+* name?
+* category?
+* brand?
+
+Logic:
+Update part information or price.
+
+---
+
+DELETE /api/parts/:id
+
+Logic:
+Remove a part from the catalog.
+
+---
+
 7. Vehicle Image Upload (Safety Feature)
 
 Endpoint
