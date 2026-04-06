@@ -5,3 +5,22 @@ export const getAllParts = async () => {
     orderBy: { name: 'asc' }
   });
 };
+
+export const createPart = async (data: { name: string; category: string; brand?: string; price: number }) => {
+  return prisma.part.create({
+    data
+  });
+};
+
+export const updatePart = async (id: string, data: Partial<{ name: string; category: string; brand: string; price: number }>) => {
+  return prisma.part.update({
+    where: { id },
+    data
+  });
+};
+
+export const deletePart = async (id: string) => {
+  return prisma.part.delete({
+    where: { id }
+  });
+};
