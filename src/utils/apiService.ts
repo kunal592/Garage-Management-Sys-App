@@ -2,20 +2,35 @@ import { API_BASE_URL } from './apiConfig';
 
 async function request(endpoint: string, options: any = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
+  
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Something went wrong' }));
-    throw new Error(error.message || response.statusText);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+    
+    clearTimeout(id);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Something went wrong' }));
+      throw new Error(error.message || response.statusText);
+    }
+
+    return response.json();
+  } catch (err: any) {
+    clearTimeout(id);
+    if (err.name === 'AbortError') {
+      throw new Error('Request timed out. Please check your connection.');
+    }
+    throw err;
   }
-
-  return response.json();
 }
 
 export const apiService = {

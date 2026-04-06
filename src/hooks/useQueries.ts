@@ -87,7 +87,19 @@ export const useAddCustomer = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: any) => apiService.customers.create(data),
-    onSuccess: () => {
+    onMutate: async (newCustomer) => {
+      await queryClient.cancelQueries({ queryKey: ['customers'] });
+      const previousCustomers = queryClient.getQueryData(['customers']);
+      queryClient.setQueryData(['customers'], (old: any[] | undefined) => [
+        ...(old || []),
+        { ...newCustomer, id: Date.now().toString(), vehicles: newCustomer.vehicles || [] },
+      ]);
+      return { previousCustomers };
+    },
+    onError: (err, newCustomer, context) => {
+      queryClient.setQueryData(['customers'], context?.previousCustomers);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
     },
   });
@@ -108,10 +120,37 @@ export const useAddService = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: any) => apiService.services.create(data),
-    onSuccess: () => {
+    onMutate: async (newService) => {
+      await queryClient.cancelQueries({ queryKey: ['dashboard', 'recent-activity'] });
+      await queryClient.cancelQueries({ queryKey: ['services'] });
+      
+      const previousServices = queryClient.getQueryData(['services', undefined]);
+      const previousActivity = queryClient.getQueryData(['dashboard', 'recent-activity']);
+
+      // Optimistically update recent activity
+      queryClient.setQueryData(['dashboard', 'recent-activity'], (old: any[] | undefined) => [
+        {
+          id: Date.now().toString(),
+          customer: { name: 'Updating...' },
+          vehicle: { model: 'Updating...' },
+          type: Array.isArray(newService.serviceItems) ? newService.serviceItems.join(', ') : 'Service',
+          cost: newService.totalCost,
+          status: newService.status || 'Pending',
+          time: 'Just now'
+        },
+        ...(old || []),
+      ]);
+
+      return { previousServices, previousActivity };
+    },
+    onError: (err, newService, context) => {
+      queryClient.setQueryData(['dashboard', 'recent-activity'], context?.previousActivity);
+      queryClient.setQueryData(['services', undefined], context?.previousServices);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['services'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
-      queryClient.invalidateQueries({ queryKey: ['customer'] });
     },
   });
 };
