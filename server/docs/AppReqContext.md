@@ -1,416 +1,84 @@
-Act as a senior backend architect specializing in Node.js, Express, Prisma ORM, and scalable SQL system design.
+# Garage Management System - Final Technical Context (Verified)
 
-Goal
-Design and implement the backend API for a **Garage Management System** that currently runs on mock data. The backend must replace the mock data with a scalable production-ready architecture.
-
-Tech Stack Requirements
-
-* Node.js
-* Express.js
-* Prisma ORM
-* SQL Database (PostgreSQL preferred)
-* Follow clean architecture and scalable backend practices.
-
-Use:
-
-* Controllers
-* Services layer
-* Route modules
-* Prisma schema models
-* Proper validation and error handling.
-
-System Overview
-
-The Garage Management System manages:
-
-* Customers
-* Vehicles
-* Service Records
-* Parts & Consumables
-* Dashboard analytics
-* Service reminders
-* Optional vehicle image uploads for safety documentation.
-
-All APIs should follow REST standards.
+This document is the result of a final recursive analysis of the codebase. It contains the exact technical specifications, infrastructure dependencies, and logic flows required to build the "Garage Manager" application with 100% accuracy.
 
 ---
 
-1. Dashboard & Analytics APIs
-
-Endpoint
-GET /api/dashboard/stats
-
-Returns:
-
-* todayRevenue
-* todayServicesCount
-* totalCustomers
-
-Used on the **Home dashboard cards**.
+## 1. Core Architecture
+- **Frontend**: React Native (Expo SDK 51+) using **Expo Router v3**.
+- **Backend**: Express (Node.js) with **TypeScript**.
+- **Data Layer**: Prisma ORM with **PostgreSQL (Hosted on Neon.tech)**.
+- **Engine**: The mobile app uses the **Hermes engine** with `newArchEnabled: true` and **React Compiler** experimental features enabled for high performance.
 
 ---
 
-Endpoint
-GET /api/dashboard/recent-activity
+## 2. Infrastructure & Environment
+### **Server (.env Requirements)**
+- `DATABASE_URL`: Connection string (PostgreSQL with SSL).
+- `PORT`: Defaulting to `5001`.
 
-Returns:
-Latest 5–10 service records with:
-
-* vehicleName
-* customerName
-* serviceType
-* serviceCost
-* serviceStatus (Pending / Performed)
-* serviceTime
-
-Used in **Recent Activity cards**.
+### **Mobile App (app.json)**
+- **Scheme**: `garagems`
+- **Bundle ID**: `com.anonymous.garagems`
+- **EAS Project ID**: `9b1a2ac7-6291-4451-889c-88db7f1e9fbd`
+- **Typed Routes**: Enabled for compile-time safety.
 
 ---
 
-Endpoint
-GET /api/analytics/business-insights
+## 3. Advanced Features & Logic Flow
 
-Returns chart data:
+### **A. Dashboard Intelligence**
+The dashboard is governed by `DashboardService` which provides three critical endpoints:
+1.  **`/api/dashboard/stats`**: Aggregates total customers, total vehicles, and **Daily Revenue** (sum of `totalCost` for today).
+2.  **`/api/dashboard/recent-activity`**: Returns the last 10 services with joined customer/vehicle data.
+3.  **`/api/dashboard/analytics`**: 
+    - Generates a 6-month rolling revenue window.
+    - Calculates a "Service Distribution" map (top 5 service types).
+    - Identifies "Top Customers" by lifetime spend.
 
-* monthlyRevenueTrend
-* serviceCategoryDistribution
-* topCustomersLeaderboard
+### **B. Reminders & Engagement**
+- **Trigger**: Frontend calculates reminders by checking `nextServiceDate` for all customer vehicles.
+- **Contact Method**: Uses the **Manual Share Bridge**. It shares a pre-formatted template string containing customer name, vehicle ID, and service date.
 
-Used in the **Analytics screen**.
+### **C. Offline-First Sync Strategy**
+- **Storage**: `AsyncStorage` via `@react-native-async-storage/async-storage`.
+- **Query Layer**: `QueryClient` configured with:
+    - `staleTime`: 24 Hours (Immediate availability on reload).
+    - `gcTime`: 7 Days (Cache survival).
+- **Persister**: Uses `createAsyncStoragePersister` to survive app process termination.
 
----
-
-2. Customer APIs
-
-Resource: Customers
-
-GET /api/customers
-
-Query Params:
-search → filter by name or phone.
-
-Returns:
-Customer directory list.
-
----
-
-POST /api/customers
-
-Body:
-name
-phone
-address
-
-Creates a new customer.
+### **D. Image Lifecycle (TTL Logic)**
+- **Upload**: `POST /api/upload-image-vehicle` stores images in `./uploads`.
+- **Retention**: Hard-coded **7-day TTL** stored in `expiresAt`.
+- **Cleanup Utility**: `cleanupExpiredImages` utility runs on a **24-hour interval**. It performs a double-sync deletion (unlinking the file in the OS and deleting the entry in Prisma).
 
 ---
 
-GET /api/customers/:id
+## 4. Database Integrity Rules
 
-Returns:
-Customer profile including:
-
-* vehicles
-* full service history.
-
----
-
-GET /api/customers/search-by-phone/:phone
-
-Logic:
-Used on **Add Service screen** to autofill existing customers.
+| Model | Implementation Rule |
+| :--- | :--- |
+| **ServicePart** | **Vital**: Stores `priceAtTime`. The inventory part price may change, but the service record must reflect the price at the time of repair. |
+| **Vehicle** | `nextServiceDate` is an optional field but is the dependency for all Alert/Reminder widgets. |
+| **Service** | Initial status defaults to `Pending`. Transition to `Performed` updates global revenue stats. |
 
 ---
 
-3. Vehicle APIs
-
-POST /api/customers/:id/vehicles
-
-Body:
-model
-vehicleNumber
-
-Logic:
-Attach vehicle to a customer.
+## 5. Summary of Screens (Router Structure)
+- `/app/(tabs)/index`: Dashboard & Sharing.
+- `/app/(tabs)/analytics`: Charting Monthly Revenue.
+- `/app/(tabs)/explore`: Service Search/Inventory.
+- `/app/(tabs)/alerts`: Next-24hr service list.
+- `/app/services/[id]`: Detail view with linked parts/costs.
+- `/app/services/add`: Modal flow for service creation.
 
 ---
 
-PATCH /api/vehicles/:id
-
-Body:
-lastServiceDate
-nextServiceDate
-
-Logic:
-Update vehicle service metadata.
-
----
-
-4. Service Record APIs
-
-Resource: Services
-
-GET /api/services
-
-Supports filters:
-
-* pending
-* performed
-
-Used in **service history page**.
-
----
-
-POST /api/services
-
-Body:
-customerId
-vehicleId
-serviceItems
-selectedParts
-customParts
-serviceCost
-partsCost
-totalCost
-nextServiceDate
-
-Logic:
-
-1. Create service record
-2. Store selected parts and quantities
-3. Update vehicle.nextServiceDate
-4. Update vehicle.lastServiceDate
-
----
-
-GET /api/services/:id
-
-Returns:
-Detailed service invoice including:
-
-* service items
-* parts used
-* cost breakdown.
-
----
-
-PATCH /api/services/:id/status
-
-Body:
-{
-status: "Performed"
-}
-
-Used by dashboard to update service completion.
-
----
-
-5. Service Alerts & Reminder APIs
-
-Endpoint
-
-GET /api/services/upcoming
-
-Logic:
-Return services where:
-
-nextServiceDate <= NOW + 24 HOURS
-
-Return data:
-
-customerName
-phone
-vehicleModel
-vehicleNumber
-nextServiceDate
-serviceId
-
-Used in **Service Alerts screen** to trigger manual reminders via mobile share dialog.
-
----
-
-6. Parts & Inventory APIs
-
-Resource: Parts
-
-GET /api/parts
-
-Returns master list of parts including:
-
-name
-category
-brand
-price
-
-Used for:
-
-* Parts selector
-* Price list page.
-
----
-
-POST /api/parts
-
-Body:
-* name
-* category
-* brand?
-* price
-
-Logic:
-Add a new part to the master catalog.
-
----
-
-PATCH /api/parts/:id
-
-Body:
-* price?
-* name?
-* category?
-* brand?
-
-Logic:
-Update part information or price.
-
----
-
-DELETE /api/parts/:id
-
-Logic:
-Remove a part from the catalog.
-
----
-
-7. Vehicle Image Upload (Safety Feature)
-
-Endpoint
-
-POST /api/upload-image-vehicle
-
-Purpose:
-Sometimes customers claim the garage damaged their vehicle. To protect the garage, the manager can optionally take a photo of the vehicle when it arrives.
-
-Behavior
-
-* Accept image upload
-* Link image to serviceId or vehicleId
-* Store image for **7 days only**
-* Automatically delete after expiration.
-
-Fields
-
-serviceId
-vehicleId
-imageFile
-
-Storage Recommendation
-
-Use:
-
-* local storage with scheduled cleanup
-  OR
-* object storage (S3 compatible)
-
-Create background cleanup logic to remove images older than 7 days.
-
----
-
-Database Relationship Design (Prisma)
-
-Customer
-
-* id
-* name
-* phone
-* address
-* createdAt
-
-Customer → hasMany → Vehicles
-
----
-
-Vehicle
-
-* id
-* model
-* vehicleNumber
-* customerId
-* lastServiceDate
-* nextServiceDate
-
-Vehicle → belongsTo → Customer
-Vehicle → hasMany → Services
-
----
-
-Service
-
-* id
-* customerId
-* vehicleId
-* status
-* serviceItems
-* serviceCost
-* partsCost
-* totalCost
-* nextServiceDate
-* createdAt
-
-Service → belongsTo → Vehicle
-
----
-
-Part
-
-* id
-* name
-* category
-* brand
-* price
-
----
-
-ServicePart (join table)
-
-* serviceId
-* partId
-* quantity
-* priceAtTime
-
----
-
-Architecture Requirements
-
-Follow scalable Node backend structure:
-
-src/
-controllers/
-services/
-routes/
-middlewares/
-utils/
-prisma/
-config/
-
-Use:
-
-* Input validation
-* Error middleware
-* Async handlers
-* Clean service layer
-* Environment configs
-
----
-
-Output Required
-
-Generate:
-
-1. Prisma schema models
-2. Express route structure
-3. Controllers
-4. Service layer logic
-5. Upload handler for vehicle images
-6. Example database queries
-7. Folder structure for scalable backend
+## 6. Build & Deployment Instructions
+1.  **Install**: `npm install` in root and `server` directories.
+2.  **DB**: `npx prisma generate` and `npx prisma db push`.
+3.  **Seed**: `npx ts-node src/prisma/seed.ts` (Requires master parts list).
+4.  **Dev**: 
+    - Backend: `npm run dev` (Port 5001).
+    - Frontend: `npx expo start`.
+5.  **Build**: `eas build --platform android/ios`.
